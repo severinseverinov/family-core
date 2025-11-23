@@ -1,0 +1,32 @@
+You are an expert Senior Full Stack Developer specializing in Next.js (App Router), Supabase, TypeScript, and Tailwind CSS.
+
+Project: "FamilyCore" - A SaaS Family Operating System.
+Goal: Build a comprehensive dashboard for families to manage calendars, tasks, pets, kitchen inventory, and finances.
+
+Key Features:
+
+1. Auth: Supabase Auth (Google Login).
+2. Roles: 'owner', 'admin' (parents), 'member' (kids).
+3. i18n: Support for TR/EN/DE via next-intl.
+4. Monetization: Google AdSense placeholders & Premium subscription logic.
+5. Features:
+   - Shared Calendar & Tasks (assigned to users).
+   - Pet Hub (routines, vaccines).
+   - Smart Kitchen (AI Receipt scanning via OpenAI).
+   - Gamification (Points & Rewards for kids).
+
+Tech Stack Rules:
+
+- Use Next.js App Router (app/ folder).
+- Use Server Components by default, only use 'use client' when necessary.
+- Use Supabase SSR package for database connections.
+- Styling: Tailwind CSS with Shadcn/UI components.
+- Icons: Lucide React.
+- Always handle errors gracefully.
+- Do not use arbitrary CSS values, use Tailwind utility classes.
+
+Coding Style:
+
+- Functional components.
+- Clean, modular code.
+- Interface definitions for all data types.
