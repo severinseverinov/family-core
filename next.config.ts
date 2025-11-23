@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
         protocol: "https",
         // BURAYI KENDİ SUPABASE URL'İNİN BAŞI İLE DEĞİŞTİR
         // Örn: 'xyzproject.supabase.co'
-        hostname: "**.supabase.co",
+        hostname: "gwbmjgvhbrzrrtsgecox.supabase.co",
       },
     ],
   },
