@@ -18,14 +18,15 @@ const DropdownMenu = ({ children }: { children: React.ReactNode }) => {
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      if (!target.closest('[data-dropdown-menu]')) {
+      if (!target.closest("[data-dropdown-menu]")) {
         setOpen(false);
       }
     };
 
     if (open) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [open]);
 
@@ -43,7 +44,8 @@ const DropdownMenuTrigger = React.forwardRef<
   React.ButtonHTMLAttributes<HTMLButtonElement>
 >(({ className, children, ...props }, ref) => {
   const context = React.useContext(DropdownMenuContext);
-  if (!context) throw new Error("DropdownMenuTrigger must be used within DropdownMenu");
+  if (!context)
+    throw new Error("DropdownMenuTrigger must be used within DropdownMenu");
 
   return (
     <button
@@ -63,7 +65,8 @@ const DropdownMenuContent = React.forwardRef<
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => {
   const context = React.useContext(DropdownMenuContext);
-  if (!context) throw new Error("DropdownMenuContent must be used within DropdownMenu");
+  if (!context)
+    throw new Error("DropdownMenuContent must be used within DropdownMenu");
 
   if (!context.open) return null;
 
@@ -71,7 +74,7 @@ const DropdownMenuContent = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        "absolute right-0 top-full z-50 mt-2 min-w-[8rem] overflow-hidden rounded-md border border-gray-200 bg-white p-1 text-gray-950 shadow-md dark:border-gray-800 dark:bg-gray-950 dark:text-gray-50",
+        "absolute right-0 top-full z-50 mt-2 min-w-32 overflow-hidden rounded-md border border-gray-200 bg-white p-1 text-gray-950 shadow-md dark:border-gray-800 dark:bg-gray-950 dark:text-gray-50",
         className
       )}
       {...props}
@@ -103,6 +106,3 @@ export {
   DropdownMenuContent,
   DropdownMenuItem,
 };
-
-
-
