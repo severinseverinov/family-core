@@ -1,96 +1,100 @@
-import { CreateFamilyForm } from "@/components/dashboard/CreateFamilyForm";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/utils/supabase/server";
+import { PetWidget } from "@/components/dashboard/widgets/PetWidget";
 import { redirect } from "next/navigation";
+import { CreateFamilyForm } from "@/components/dashboard/CreateFamilyForm";
+import { signOut } from "@/app/actions/auth";
+import { CalendarWidget } from "@/components/dashboard/widgets/CalendarWidget";
 
-export default async function DashboardPage() {
+export default async function Dashboard() {
   const supabase = await createClient();
 
+  // 1. Kullanıcı Giriş Yapmış mı?
   const {
     data: { user },
-    error: userError,
+    error: authError,
   } = await supabase.auth.getUser();
-
-  if (userError || !user) {
+  if (authError || !user) {
     redirect("/login");
   }
 
+  // 2. Profili Çek (Hata Korumalı Yöntem)
+  // .single() yerine .maybeSingle() kullanıyoruz ki uygulama çökmesin.
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("full_name, family_id")
+    .select("*")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
+  // Eğer veritabanı hatası varsa (Bağlantı vs.)
   if (profileError) {
-    console.error("Failed to load profile:", profileError.message);
+    console.error("Profil çekme hatası:", profileError);
+    return <div>Veritabanı hatası oluştu: {profileError.message}</div>;
   }
 
-  if (!profile?.family_id) {
+  // 3. Eğer Profil Yoksa (Kritik Durum)
+  // Kullanıcı Auth'da var ama Profiles tablosunda yoksa, manuel oluşturalım veya uyaralım.
+  if (!profile) {
     return (
-      <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
-        <CreateFamilyForm />
-      </main>
+      <div className="flex h-screen items-center justify-center flex-col gap-4">
+        <h1 className="text-xl font-bold text-red-600">Profil Bulunamadı</h1>
+        <p>Hesabınız oluşturulmuş ancak profil bilgileriniz eksik.</p>
+        <p className="text-sm text-gray-500">
+          Lütfen çıkış yapıp tekrar üye olmayı deneyin.
+        </p>
+        <form action={signOut}>
+          <button
+            type="submit"
+            className="bg-black text-white px-4 py-2 rounded"
+          >
+            Çıkış Yap
+          </button>
+        </form>
+      </div>
     );
   }
 
+  // 4. Aile Kontrolü
+  // Eğer aileyi henüz kurmamışsa form göster
+  if (!profile.family_id) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <CreateFamilyForm />
+      </div>
+    );
+  }
+
+  // 5. Her şey tamamsa Dashboard'u göster
+  // Fallback logic for user name display
   const userName =
-    profile?.full_name ||
+    profile.full_name ||
     user.user_metadata?.full_name ||
     user.email?.split("@")[0] ||
     "there";
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10">
-      <header className="space-y-2 text-left">
-        <h1 className="text-3xl font-semibold text-gray-900 dark:text-gray-50">
-          Welcome back, {userName}!
-        </h1>
-        <p className="text-base text-gray-600 dark:text-gray-300">
-          Here's what's happening across your family workspace today.
-        </p>
-      </header>
-
-      <div className="grid gap-6 md:grid-cols-3">
-        <div className="space-y-6 md:col-span-2">
-          <PlaceholderCard title="CalendarWidget">
-            Your shared family calendar will appear here.
-          </PlaceholderCard>
-          <PlaceholderCard title="KitchenWidget">
-            Smart kitchen insights and inventory live in this section.
-          </PlaceholderCard>
+    <div className="p-8">
+      <h1 className="text-2xl font-bold mb-4">Hoş geldin, {userName}</h1>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* SOL SÜTUN */}
+        <div className="md:col-span-2 space-y-6">
+          <div className="h-full">
+            <CalendarWidget />
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow border h-64 flex items-center justify-center text-gray-400">
+            Mutfak / Fiş Widget Gelecek
+          </div>
         </div>
-        <div className="space-y-6 md:col-span-1">
-          <PlaceholderCard title="GamificationWidget">
-            Points, rewards, and family challenges will show up here.
-          </PlaceholderCard>
-          <PlaceholderCard title="PetWidget">
-            Track pet routines, vaccines, and reminders in this panel.
-          </PlaceholderCard>
+
+        {/* SAĞ SÜTUN */}
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-lg shadow border h-40 flex items-center justify-center text-gray-400">
+            Puan Durumu
+          </div>
+          <div className="h-full">
+            <PetWidget />
+          </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
-
-function PlaceholderCard({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card className="min-h-[160px]">
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-50">
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="text-sm text-gray-600 dark:text-gray-300">
-        {children}
-      </CardContent>
-    </Card>
-  );
-}
-
-

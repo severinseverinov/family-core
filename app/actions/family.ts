@@ -2,75 +2,82 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
-interface CreateFamilyResult {
-  success: boolean;
-  message: string;
-  familyId?: string;
-}
-
-export async function createFamily(formData: FormData): Promise<CreateFamilyResult> {
+export async function createFamily(formData: FormData) {
   const supabase = await createClient();
 
+  // 1. Kullanıcı Oturumu Kontrolü
   const {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
-
   if (authError || !user) {
-    return {
-      success: false,
-      message: authError?.message ?? "You must be signed in to create a family.",
-    };
+    return { error: "Kullanıcı oturumu bulunamadı." };
   }
 
-  const familyName = formData.get("familyName")?.toString().trim();
+  // ---------------------------------------------------------
+  // BUG FİX: GÜVENLİ VERİ DOĞRULAMA (VALIDATION)
+  // ---------------------------------------------------------
+  const rawName = formData.get("familyName");
 
-  if (!familyName) {
-    return {
-      success: false,
-      message: "Family name is required.",
-    };
+  // 1. Veri var mı? 2. String mi? 3. Boşlukları silince boş mu kalıyor?
+  if (!rawName || typeof rawName !== "string" || rawName.trim().length === 0) {
+    return { error: "Lütfen geçerli bir aile adı giriniz." };
   }
 
-  const { data: familyData, error: familyError } = await supabase
+  // Temizlenmiş veriyi al
+  const familyName = rawName.trim();
+  // ---------------------------------------------------------
+
+  console.log(
+    "İşlem Başlıyor: Kullanıcı ID:",
+    user.id,
+    "Aile Adı:",
+    familyName
+  );
+
+  // 2. Aile Tablosuna Ekleme
+  const { data: family, error: familyError } = await supabase
     .from("families")
     .insert({
       name: familyName,
       owner_id: user.id,
     })
-    .select("id")
+    .select()
     .single();
 
-  if (familyError || !familyData) {
-    return {
-      success: false,
-      message: familyError?.message ?? "Failed to create family.",
-    };
+  if (familyError) {
+    console.error("KRİTİK HATA - Aile Oluşturulamadı:", familyError.message);
+    return { error: "Aile oluşturulamadı: " + familyError.message };
   }
 
-  const { error: profileError } = await supabase
+  console.log("Aile oluşturuldu. Family ID:", family.id);
+
+  // 3. Profil Güncelleme
+  const { data: updatedProfile, error: profileError } = await supabase
     .from("profiles")
     .update({
-      family_id: familyData.id,
+      family_id: family.id,
       role: "owner",
     })
-    .eq("id", user.id);
+    .eq("id", user.id)
+    .select();
 
   if (profileError) {
-    return {
-      success: false,
-      message: profileError.message ?? "Failed to update profile with family.",
-    };
+    console.error("KRİTİK HATA - Profil Güncellenemedi:", profileError.message);
+    // Not: Aile oluştu ama profil güncellenemedi, burada transaction yapısı daha iyi olurdu
+    // ama şimdilik basit tutuyoruz.
+    return { error: "Profil güncellenemedi." };
   }
 
+  if (!updatedProfile || updatedProfile.length === 0) {
+    console.error("GİZLİ HATA - RLS Engeli");
+    return { error: "Güvenlik politikası profil güncellemesini engelledi." };
+  }
+
+  console.log("BAŞARILI! Profil güncellendi.");
+
   revalidatePath("/dashboard");
-
-  return {
-    success: true,
-    message: "Family created successfully.",
-    familyId: familyData.id,
-  };
+  redirect("/dashboard");
 }
-
-

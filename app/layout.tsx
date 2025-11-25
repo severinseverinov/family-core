@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/Navbar";
+import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,7 +17,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "FamilyCore - Family Operating System",
-  description: "A comprehensive dashboard for families to manage calendars, tasks, pets, kitchen inventory, and finances",
+  description:
+    "A comprehensive dashboard for families to manage calendars, tasks, pets, kitchen inventory, and finances",
 };
 
 export default function RootLayout({
@@ -28,8 +31,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Navbar />
-        {children}
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <Navbar />
+          {children}
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );
