@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { tr } from "date-fns/locale"; // Türkçe takvim için
-import { Calendar as CalendarIcon, Plus, Lock, Users } from "lucide-react";
-import { toast } from "sonner"; // Veya shadcn toast
+import { tr } from "date-fns/locale"; // Türkçe takvim
+import { Plus } from "lucide-react";
+import { toast } from "sonner";
 
 import { createEvent } from "@/app/actions/events";
 import { Calendar } from "@/components/ui/calendar";
@@ -16,25 +16,22 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  // DialogTrigger sildik, ihtiyacımız yok
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-// ... (fetch edilen veriler props olarak gelebilir veya component içinde server action çağrılabilir)
 
 export function CalendarWidget() {
   const router = useRouter();
 
-  // 1. DIALOG DURUMUNU YÖNETEN STATE
+  // Dialog ve Tarih State'leri
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     new Date()
   );
 
-  // Takvimde güne tıklanınca çalışacak fonksiyon
+  // Takvimde güne tıklanınca çalışacak
   const handleDayClick = (date: Date) => {
     setSelectedDate(date);
-    setIsDialogOpen(true); // Diyaloğu aç
+    setIsDialogOpen(true);
   };
 
   return (
@@ -44,8 +41,7 @@ export function CalendarWidget() {
           Takvim & Etkinlikler
         </CardTitle>
 
-        {/* 2. BUTON (DialogTrigger YERİNE NORMAL BUTTON) */}
-        {/* Bu buton Dialog'un dışında olabilir, hata vermez çünkü state kullanıyoruz */}
+        {/* Manuel Açma Butonu */}
         <Button
           variant="outline"
           size="icon"
@@ -58,23 +54,25 @@ export function CalendarWidget() {
 
       <CardContent className="flex-1 flex flex-col md:flex-row gap-4">
         {/* SOL: TAKVİM */}
-        <div className="border rounded-md p-2">
+        <div className="border rounded-md p-2 flex justify-center bg-white dark:bg-black/20">
           <Calendar
             mode="single"
             selected={selectedDate}
             onSelect={setSelectedDate}
-            onDayClick={handleDayClick} // Tıklayınca açılmasını sağlar
+            onDayClick={handleDayClick}
             locale={tr}
-            className="rounded-md border"
+            className="rounded-md border shadow-sm"
           />
         </div>
 
-        {/* SAĞ: LİSTE (Buraya event listesi kodların gelecek...) */}
-        <div className="flex-1">{/* ... Event Listesi ... */}</div>
+        {/* SAĞ: LİSTE (Şimdilik boş, sonra dolduracağız) */}
+        <div className="flex-1 flex flex-col justify-center items-center text-muted-foreground text-sm border rounded-md bg-gray-50 dark:bg-gray-900/50 p-4">
+          <p>Bugün için planlanmış etkinlik yok.</p>
+          <p className="text-xs mt-2">Tarihe tıklayarak ekleyebilirsin.</p>
+        </div>
 
-        {/* 3. DIALOG (SAYFANIN EN ALTINDA OLABİLİR) */}
+        {/* DIALOG (MODAL) */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          {/* İçinde Trigger yok, sadece Content var */}
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Yeni Etkinlik Ekle</DialogTitle>
@@ -89,14 +87,19 @@ export function CalendarWidget() {
             <form
               action={async formData => {
                 const result = await createEvent(formData);
-                // Hata kontrolü vs...
-                setIsDialogOpen(false); // Başarılıysa kapat
+
+                if (result?.error) {
+                  toast.error(result.error);
+                  return;
+                }
+
+                setIsDialogOpen(false);
                 router.refresh();
                 toast.success("Etkinlik eklendi");
               }}
               className="space-y-4"
             >
-              {/* Gizli input ile seçili tarihi gönderiyoruz */}
+              {/* Gizli tarih verisi */}
               <input
                 type="hidden"
                 name="date"
@@ -104,17 +107,48 @@ export function CalendarWidget() {
               />
 
               <div className="space-y-2">
+                <label className="text-sm font-medium">Başlık</label>
                 <input
                   name="title"
-                  placeholder="Etkinlik Başlığı"
+                  placeholder="Örn: Doktor Randevusu"
                   required
-                  className="w-full border rounded p-2 text-sm"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
               </div>
 
-              {/* Diğer inputlar (Saat, Gizlilik vs.) */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Başlangıç</label>
+                  <input
+                    type="datetime-local"
+                    name="start_time"
+                    required
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Bitiş</label>
+                  <input
+                    type="datetime-local"
+                    name="end_time"
+                    required
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
 
-              <div className="flex justify-end gap-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Görünürlük</label>
+                <select
+                  name="privacy_level"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="family">Tüm Aile</option>
+                  <option value="private">Sadece Ben</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
                 <Button
                   type="button"
                   variant="ghost"
