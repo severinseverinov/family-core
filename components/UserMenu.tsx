@@ -42,7 +42,7 @@ export function UserMenu({ user }: UserMenuProps) {
           <AvatarFallback>{userInitials}</AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56 mr-4">
+      <DropdownMenuContent className="w-56 mr-4 mt-2">
         <div className="px-2 py-1.5">
           <p className="text-sm font-medium text-gray-900 dark:text-gray-50">
             {user.email?.split("@")[0] || "User"}
