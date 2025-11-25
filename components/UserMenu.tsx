@@ -26,10 +26,8 @@ export function UserMenu({ user }: UserMenuProps) {
     router.refresh();
   };
 
-  const userInitials = user.email
-    ?.split("@")[0]
-    .substring(0, 2)
-    .toUpperCase() || "U";
+  const userInitials =
+    user.email?.split("@")[0].substring(0, 2).toUpperCase() || "U";
 
   return (
     <DropdownMenu>
@@ -41,12 +39,10 @@ export function UserMenu({ user }: UserMenuProps) {
               alt={user.email || "User"}
             />
           ) : null}
-          <AvatarFallback>
-            {userInitials}
-          </AvatarFallback>
+          <AvatarFallback>{userInitials}</AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent className="w-56 mr-4">
         <div className="px-2 py-1.5">
           <p className="text-sm font-medium text-gray-900 dark:text-gray-50">
             {user.email?.split("@")[0] || "User"}
@@ -66,6 +62,3 @@ export function UserMenu({ user }: UserMenuProps) {
     </DropdownMenu>
   );
 }
-
-
-
