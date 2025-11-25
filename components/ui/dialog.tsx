@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +20,11 @@ interface DialogProps {
   onOpenChange?: (open: boolean) => void;
 }
 
-const Dialog = ({ children, open: controlledOpen, onOpenChange }: DialogProps) => {
+const Dialog = ({
+  children,
+  open: controlledOpen,
+  onOpenChange,
+}: DialogProps) => {
   const [internalOpen, setInternalOpen] = React.useState(false);
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = React.useCallback(
@@ -50,34 +55,14 @@ const Dialog = ({ children, open: controlledOpen, onOpenChange }: DialogProps) =
   );
 };
 
-const DialogTrigger = React.forwardRef<
-  HTMLButtonElement,
-  React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ className, children, ...props }, ref) => {
-  const context = React.useContext(DialogContext);
-  if (!context)
-    throw new Error("DialogTrigger must be used within Dialog");
-
-  return (
-    <button
-      ref={ref}
-      className={className}
-      onClick={() => context.setOpen(true)}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-});
-DialogTrigger.displayName = "DialogTrigger";
+const DialogTrigger = DialogPrimitive.Trigger;
 
 const DialogContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, children, ...props }, ref) => {
   const context = React.useContext(DialogContext);
-  if (!context)
-    throw new Error("DialogContent must be used within Dialog");
+  if (!context) throw new Error("DialogContent must be used within Dialog");
 
   if (!context.open) return null;
 
@@ -158,5 +143,3 @@ export {
   DialogTitle,
   DialogDescription,
 };
-
-
