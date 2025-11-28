@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, Loader2, ShoppingBag, ScanLine } from "lucide-react";
+import { Upload, ScanLine, ShoppingBag } from "lucide-react";
 import { scanReceipt } from "@/app/actions/kitchen";
 import { toast } from "sonner";
 
@@ -23,9 +23,10 @@ export function KitchenWidget() {
     try {
       const result = await scanReceipt(formData);
 
-      if (result.error) {
+      if (result?.error) {
         toast.error(result.error);
-      } else {
+      } else if (result?.data) {
+        // DÜZELTME: result.data kontrolünü sağlama aldık
         toast.success(
           `Fiş okundu! ${result.data.items.length} ürün stoğa eklendi.`
         );
