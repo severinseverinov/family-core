@@ -3,7 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { LogIn } from "lucide-react";
 import { UserMenu } from "./UserMenu";
 import { Button } from "@/components/ui/button";
-import { headers } from "next/headers"; // <-- Bunu ekle
+import { headers } from "next/headers";
 
 // Ülke kodunu Bayrak Emojisine çeviren yardımcı fonksiyon
 function getFlagEmoji(countryCode: string) {

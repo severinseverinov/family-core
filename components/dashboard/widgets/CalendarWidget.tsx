@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { tr } from "date-fns/locale"; // Türkçe takvim desteği
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
-import { headers } from "next/headers";
+
 // Server Actions ve Tipler
 import {
   createEvent,
@@ -25,9 +25,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { headers } from "next/headers";
 
-export function CalendarWidget() {
+export function CalendarWidget({ countryCode }: { countryCode: string }) {
   const router = useRouter();
 
   // State Yönetimi
@@ -40,8 +39,6 @@ export function CalendarWidget() {
   // Sayfa yüklendiğinde Tatilleri Çek
   useEffect(() => {
     async function loadHolidays() {
-      const headersList = await headers();
-      const countryCode = headersList.get("x-vercel-ip-country") || "TR";
       const data = await getPublicHolidays(countryCode);
       setHolidays(data);
     }

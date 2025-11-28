@@ -6,6 +6,7 @@ import { signOut } from "@/app/actions/auth";
 import { CalendarWidget } from "@/components/dashboard/widgets/CalendarWidget";
 import { KitchenWidget } from "@/components/dashboard/widgets/KitchenWidget";
 import { GamificationWidget } from "@/components/dashboard/widgets/GamificationWidget";
+import { headers } from "next/headers";
 
 export default async function Dashboard() {
   const supabase = await createClient();
@@ -72,6 +73,8 @@ export default async function Dashboard() {
     user.user_metadata?.full_name ||
     user.email?.split("@")[0] ||
     "there";
+  const headersList = await headers();
+  const countryCode = headersList.get("x-vercel-ip-country") || "TR";
 
   return (
     <div className="p-8">
@@ -80,7 +83,7 @@ export default async function Dashboard() {
         {/* SOL SÜTUN */}
         <div className="md:col-span-2 space-y-6">
           <div className="h-full">
-            <CalendarWidget />
+            <CalendarWidget countryCode={countryCode} />
           </div>
           <div className="h-64">
             <KitchenWidget />
