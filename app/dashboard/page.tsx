@@ -7,6 +7,7 @@ import { CalendarWidget } from "@/components/dashboard/widgets/CalendarWidget";
 import { KitchenWidget } from "@/components/dashboard/widgets/KitchenWidget";
 import { GamificationWidget } from "@/components/dashboard/widgets/GamificationWidget";
 import { headers } from "next/headers";
+import { VaultWidget } from "@/components/dashboard/widgets/VaultWidget";
 
 export default async function Dashboard() {
   const supabase = await createClient();
@@ -95,8 +96,11 @@ export default async function Dashboard() {
           <div className="h-64">
             <GamificationWidget />
           </div>
-          <div className="h-full">
+          <div className="h-64">
             <PetWidget />
+          </div>
+          <div className="h-128">
+            <VaultWidget />
           </div>
         </div>
       </div>
