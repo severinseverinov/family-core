@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
 export interface Event {
   id: string;
@@ -192,7 +193,8 @@ export async function createEvent(formData: FormData) {
 
   return { success: true, event };
 }
-// ... (Mevcut importlar ve kodlar yukarıda kalsın)
+
+const headersList = await headers();
 
 // Yeni eklenen tip tanımlaması
 export interface Holiday {
@@ -203,7 +205,9 @@ export interface Holiday {
 }
 
 // Resmi Tatilleri Çeken Fonksiyon (Nager.Date API kullanır - Ücretsizdir)
-export async function getPublicHolidays(countryCode: string = "TR") {
+export async function getPublicHolidays(
+  countryCode: string = headersList.get("x-vercel-ip-country") || "TR"
+) {
   const year = new Date().getFullYear();
 
   try {
@@ -211,7 +215,7 @@ export async function getPublicHolidays(countryCode: string = "TR") {
     const response = await fetch(
       `https://date.nager.at/api/v3/publicholidays/${year}/${countryCode}`,
       {
-        next: { revalidate: 86 }, // 24 saat önbellekte tut (her gün sorgulama yapmasın)
+        next: { revalidate: 86400 }, // 24 saat önbellekte tut (her gün sorgulama yapmasın)
       }
     );
 
