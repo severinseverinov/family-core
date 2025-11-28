@@ -2,9 +2,10 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
-// import OpenAI from "openai"; // OpenAI'ı şimdilik kapattık
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Gemini İstemcisini Başlat
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function scanReceipt(formData: FormData) {
   const supabase = await createClient();
@@ -23,11 +24,11 @@ export async function scanReceipt(formData: FormData) {
 
   if (!profile?.family_id) return { error: "Bir aileye bağlı değilsiniz." };
 
-  // 2. Dosyayı Al ve Supabase Storage'a Yükle
+  // 2. Dosyayı Al
   const file = formData.get("receipt") as File;
   if (!file) return { error: "Dosya bulunamadı." };
 
-  // Dosya yükleme işlemi (Bu kısım gerçek çalışsın ki Storage test edilsin)
+  // 3. Dosyayı Supabase Storage'a Yükle (Arşiv için)
   const fileExt = file.name.split(".").pop();
   const fileName = `${user.id}-${Date.now()}.${fileExt}`;
   const filePath = `receipts/${fileName}`;
@@ -38,61 +39,76 @@ export async function scanReceipt(formData: FormData) {
 
   if (uploadError) {
     console.error("Upload hatası:", uploadError);
-    // Hata olsa bile devam edelim (Test için), normalde return ederdik.
+    // Storage hatası olsa bile analize devam edebiliriz, ama resim linki bozuk olur.
   }
 
+  // Resmin Public URL'ini al (Veritabanına kaydetmek için)
   const {
     data: { publicUrl },
   } = supabase.storage.from("images").getPublicUrl(filePath);
 
-  // ------------------------------------------------------------
-  // 3. MOCK DATA (YAPAY ZEKA YERİNE SABİT VERİ)
-  // ------------------------------------------------------------
-  // OpenAI bakiyesi olmadığı için burayı elle simüle ediyoruz.
-
-  console.log("⚠️ MOCK MODE: OpenAI yerine sahte veri kullanılıyor.");
-
-  // Sanki AI fişi okumuş gibi bu sonucu üretiyoruz:
-  const result = {
-    shop_name: "Migros (Test Fişi)",
-    total_amount: 245.5,
-    items: [
-      { name: "Tam Yağlı Süt", quantity: 2, category: "Gıda", unit: "litre" },
-      {
-        name: "Köy Yumurtası",
-        quantity: 1,
-        category: "Gıda",
-        unit: "paket (15li)",
-      },
-      {
-        name: "Bulaşık Deterjanı",
-        quantity: 1,
-        category: "Temizlik",
-        unit: "adet",
-      },
-      { name: "Çeri Domates", quantity: 0.5, category: "Sebze", unit: "kg" },
-    ],
-  };
-
-  // ------------------------------------------------------------
-  // 4. Veritabanı Kayıt İşlemleri (Gerçek Çalışacak)
-  // ------------------------------------------------------------
-
+  // 4. Gemini AI ile Analiz Et
   try {
+    // Dosyayı Base64'e çevir (Gemini'ye göndermek için)
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Data = buffer.toString("base64");
+
+    // Modeli Seç (Gemini 1.5 Flash hızlı ve ekonomiktir)
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const prompt = `
+      Sen uzman bir fiş analistisin. Görüntüdeki market fişini analiz et.
+      Ürün isimlerini genel, sade isimlere dönüştür (Örn: "Pınar Yarım Yağlı Süt 1L" -> "Süt").
+      
+      Çıktıyı SADECE aşağıdaki JSON formatında ver, markdown veya 'json' etiketi kullanma:
+      {
+        "shop_name": "Market Adı",
+        "total_amount": 150.50,
+        "items": [
+          { "name": "Süt", "quantity": 1, "category": "Gıda", "unit": "litre" },
+          { "name": "Domates", "quantity": 2, "category": "Sebze", "unit": "kg" }
+        ]
+      }
+    `;
+
+    const result = await model.generateContent([
+      prompt,
+      {
+        inlineData: {
+          data: base64Data,
+          mimeType: file.type || "image/jpeg",
+        },
+      },
+    ]);
+
+    const response = await result.response;
+    let text = response.text();
+
+    // Temizlik: Gemini bazen ```json ... ``` blokları içinde yanıt verir, onları silelim.
+    text = text
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
+
+    const data = JSON.parse(text);
+
+    // 5. Veritabanına Kaydet
+
     // A) Harcamayı Kaydet
     const { error: expenseError } = await supabase.from("expenses").insert({
       family_id: profile.family_id,
-      amount: result.total_amount,
-      shop_name: result.shop_name,
+      amount: data.total_amount,
+      shop_name: data.shop_name,
       receipt_image_url: publicUrl,
-      items_json: result.items,
+      items_json: data.items,
     });
 
     if (expenseError)
       throw new Error("Harcama kaydedilemedi: " + expenseError.message);
 
     // B) Envantere Ekle (Döngü ile)
-    for (const item of result.items) {
+    for (const item of data.items) {
       // Bu ürün zaten var mı?
       const { data: existing } = await supabase
         .from("inventory")
@@ -120,9 +136,9 @@ export async function scanReceipt(formData: FormData) {
     }
 
     revalidatePath("/dashboard");
-    return { success: true, data: result };
+    return { success: true, data: data };
   } catch (error: any) {
-    console.error("Veritabanı Hatası:", error);
-    return { error: error.message || "İşlem başarısız." };
+    console.error("Gemini Hatası:", error);
+    return { error: "Fiş okunamadı: " + (error.message || "Bilinmeyen hata") };
   }
 }
