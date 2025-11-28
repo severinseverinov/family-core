@@ -4,8 +4,13 @@ import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Gemini İstemcisini Başlat
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+// API Anahtarı Kontrolü
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+  console.error("GEMINI_API_KEY bulunamadı!");
+}
+
+const genAI = new GoogleGenerativeAI(apiKey!);
 
 export async function scanReceipt(formData: FormData) {
   const supabase = await createClient();
@@ -28,7 +33,7 @@ export async function scanReceipt(formData: FormData) {
   const file = formData.get("receipt") as File;
   if (!file) return { error: "Dosya bulunamadı." };
 
-  // 3. Dosyayı Supabase Storage'a Yükle (Arşiv için)
+  // 3. Dosyayı Supabase Storage'a Yükle
   const fileExt = file.name.split(".").pop();
   const fileName = `${user.id}-${Date.now()}.${fileExt}`;
   const filePath = `receipts/${fileName}`;
@@ -39,23 +44,23 @@ export async function scanReceipt(formData: FormData) {
 
   if (uploadError) {
     console.error("Upload hatası:", uploadError);
-    // Storage hatası olsa bile analize devam edebiliriz, ama resim linki bozuk olur.
   }
 
-  // Resmin Public URL'ini al (Veritabanına kaydetmek için)
   const {
     data: { publicUrl },
   } = supabase.storage.from("images").getPublicUrl(filePath);
 
   // 4. Gemini AI ile Analiz Et
   try {
-    // Dosyayı Base64'e çevir (Gemini'ye göndermek için)
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const base64Data = buffer.toString("base64");
 
-    // Modeli Seç (Gemini 1.5 Flash hızlı ve ekonomiktir)
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // MODEL GÜNCELLEMESİ: 'gemini-1.5-flash-latest' kullanıyoruz (Daha güvenli)
+    // Eğer yine hata alırsan 'gemini-1.5-pro' deneyebilirsin.
+    const model = genAI.getGenerativeModel({
+      model: "gemini-flash-latest",
+    });
 
     const prompt = `
       Sen uzman bir fiş analistisin. Görüntüdeki market fişini analiz et.
@@ -85,17 +90,14 @@ export async function scanReceipt(formData: FormData) {
     const response = await result.response;
     let text = response.text();
 
-    // Temizlik: Gemini bazen ```json ... ``` blokları içinde yanıt verir, onları silelim.
+    // Temizlik
     text = text
       .replace(/```json/g, "")
       .replace(/```/g, "")
       .trim();
-
     const data = JSON.parse(text);
 
     // 5. Veritabanına Kaydet
-
-    // A) Harcamayı Kaydet
     const { error: expenseError } = await supabase.from("expenses").insert({
       family_id: profile.family_id,
       amount: data.total_amount,
@@ -107,9 +109,7 @@ export async function scanReceipt(formData: FormData) {
     if (expenseError)
       throw new Error("Harcama kaydedilemedi: " + expenseError.message);
 
-    // B) Envantere Ekle (Döngü ile)
     for (const item of data.items) {
-      // Bu ürün zaten var mı?
       const { data: existing } = await supabase
         .from("inventory")
         .select("id, quantity")
@@ -118,13 +118,11 @@ export async function scanReceipt(formData: FormData) {
         .maybeSingle();
 
       if (existing) {
-        // Varsa üstüne ekle
         await supabase
           .from("inventory")
           .update({ quantity: existing.quantity + item.quantity })
           .eq("id", existing.id);
       } else {
-        // Yoksa yeni oluştur
         await supabase.from("inventory").insert({
           family_id: profile.family_id,
           product_name: item.name,
@@ -139,6 +137,12 @@ export async function scanReceipt(formData: FormData) {
     return { success: true, data: data };
   } catch (error: any) {
     console.error("Gemini Hatası:", error);
-    return { error: "Fiş okunamadı: " + (error.message || "Bilinmeyen hata") };
+    // Hata mesajını daha anlaşılır hale getirelim
+    const errorMessage =
+      error.status === 404
+        ? "AI Modeli bulunamadı. API Anahtarınızı ve model ismini kontrol edin."
+        : error.message || "Bilinmeyen hata";
+
+    return { error: "Fiş okunamadı: " + errorMessage };
   }
 }
