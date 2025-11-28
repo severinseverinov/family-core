@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { CreateFamilyForm } from "@/components/dashboard/CreateFamilyForm";
 import { signOut } from "@/app/actions/auth";
 import { CalendarWidget } from "@/components/dashboard/widgets/CalendarWidget";
+import { KitchenWidget } from "@/components/dashboard/widgets/KitchenWidget";
+import { GamificationWidget } from "@/components/dashboard/widgets/GamificationWidget";
 
 export default async function Dashboard() {
   const supabase = await createClient();
@@ -80,15 +82,15 @@ export default async function Dashboard() {
           <div className="h-full">
             <CalendarWidget />
           </div>
-          <div className="bg-white p-6 rounded-lg shadow border h-64 flex items-center justify-center text-gray-400">
-            Mutfak / Fiş Widget Gelecek
+          <div className="h-64">
+            <KitchenWidget />
           </div>
         </div>
 
         {/* SAĞ SÜTUN */}
         <div className="space-y-6">
-          <div className="bg-white p-6 rounded-lg shadow border h-40 flex items-center justify-center text-gray-400">
-            Puan Durumu
+          <div className="h-64">
+            <GamificationWidget />
           </div>
           <div className="h-full">
             <PetWidget />

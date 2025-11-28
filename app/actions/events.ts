@@ -151,7 +151,10 @@ export async function createEvent(formData: FormData) {
     return { error: "Start and end times are required." };
   }
 
-  if (!privacyLevel || (privacyLevel !== "family" && privacyLevel !== "private")) {
+  if (
+    !privacyLevel ||
+    (privacyLevel !== "family" && privacyLevel !== "private")
+  ) {
     return { error: "Privacy level must be 'family' or 'private'." };
   }
 
@@ -189,5 +192,35 @@ export async function createEvent(formData: FormData) {
 
   return { success: true, event };
 }
+// ... (Mevcut importlar ve kodlar yukarıda kalsın)
 
+// Yeni eklenen tip tanımlaması
+export interface Holiday {
+  date: string;
+  localName: string;
+  name: string;
+  countryCode: string;
+}
 
+// Resmi Tatilleri Çeken Fonksiyon (Nager.Date API kullanır - Ücretsizdir)
+export async function getPublicHolidays(countryCode: string = "TR") {
+  const year = new Date().getFullYear();
+
+  try {
+    // API'den veriyi çek
+    const response = await fetch(
+      `https://date.nager.at/api/v3/publicholidays/${year}/${countryCode}`,
+      {
+        next: { revalidate: 86400 }, // 24 saat önbellekte tut (her gün sorgulama yapmasın)
+      }
+    );
+
+    if (!response.ok) return [];
+
+    const holidays: Holiday[] = await response.json();
+    return holidays;
+  } catch (error) {
+    console.error("Tatil verisi çekilemedi:", error);
+    return [];
+  }
+}
