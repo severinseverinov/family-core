@@ -211,7 +211,7 @@ export async function getPublicHolidays(countryCode: string = "TR") {
     const response = await fetch(
       `https://date.nager.at/api/v3/publicholidays/${year}/${countryCode}`,
       {
-        next: { revalidate: 86400 }, // 24 saat önbellekte tut (her gün sorgulama yapmasın)
+        next: { revalidate: 86 }, // 24 saat önbellekte tut (her gün sorgulama yapmasın)
       }
     );
 
