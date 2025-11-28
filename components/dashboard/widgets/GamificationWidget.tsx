@@ -1,138 +1,217 @@
-"use server";
+"use client";
 
-import { createClient } from "@/utils/supabase/server";
-import { revalidatePath } from "next/cache";
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Trophy, ShoppingBag, Star, Plus, Gift } from "lucide-react";
+import { toast } from "sonner";
+import {
+  getLeaderboard,
+  getRewards,
+  createReward,
+  redeemReward,
+} from "@/app/actions/gamification";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
-// 1. Liderlik Tablosunu ve Kullanıcıları Çek
-export async function getLeaderboard() {
-  const supabase = await createClient();
+export function GamificationWidget() {
+  const [activeTab, setActiveTab] = useState<"leaderboard" | "market">(
+    "leaderboard"
+  );
+  const [users, setUsers] = useState<any[]>([]);
+  const [rewards, setRewards] = useState<any[]>([]);
+  const [isAddOpen, setIsAddOpen] = useState(false);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { users: [] };
+  // Verileri Çek
+  const loadData = async () => {
+    const userRes = await getLeaderboard();
+    const rewardRes = await getRewards();
+    if (userRes.users) setUsers(userRes.users);
+    if (rewardRes.rewards) setRewards(rewardRes.rewards);
+  };
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("family_id")
-    .eq("id", user.id)
-    .single();
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  if (!profile?.family_id) return { users: [] };
+  // Ödül Satın Alma
+  const handleRedeem = async (reward: any) => {
+    if (
+      !confirm(
+        `"${reward.title}" ödülünü ${reward.cost} puana almak istiyor musun?`
+      )
+    )
+      return;
 
-  const { data: users } = await supabase
-    .from("profiles")
-    .select("id, full_name, avatar_url, current_points, role")
-    .eq("family_id", profile.family_id)
-    .order("current_points", { ascending: false });
+    const res = await redeemReward(reward.id, reward.cost, reward.title);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("Ödül alındı! 🎉");
+      loadData(); // Puanları güncelle
+    }
+  };
 
-  return { users: users || [] };
-}
+  return (
+    <Card className="h-full flex flex-col">
+      <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+        <CardTitle className="text-sm font-medium flex gap-2">
+          <Trophy className="h-4 w-4 text-yellow-500" />
+          Aile Ligi
+        </CardTitle>
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-lg dark:bg-gray-800">
+          <button
+            onClick={() => setActiveTab("leaderboard")}
+            className={`px-3 py-1 text-xs rounded-md transition-all ${
+              activeTab === "leaderboard"
+                ? "bg-white shadow text-black dark:bg-gray-700 dark:text-white"
+                : "text-gray-500"
+            }`}
+          >
+            Sıralama
+          </button>
+          <button
+            onClick={() => setActiveTab("market")}
+            className={`px-3 py-1 text-xs rounded-md transition-all ${
+              activeTab === "market"
+                ? "bg-white shadow text-black dark:bg-gray-700 dark:text-white"
+                : "text-gray-500"
+            }`}
+          >
+            Market
+          </button>
+        </div>
+      </CardHeader>
 
-// 2. Ödülleri Çek
-export async function getRewards() {
-  const supabase = await createClient();
+      <CardContent className="flex-1 overflow-auto p-4">
+        {/* LİDERLİK TABLOSU */}
+        {activeTab === "leaderboard" && (
+          <div className="space-y-3">
+            {users.map((user, index) => (
+              <div
+                key={user.id}
+                className="flex items-center justify-between p-2 bg-gray-50 rounded border dark:bg-gray-900/50"
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-8 h-8 flex items-center justify-center rounded-full font-bold text-white ${
+                      index === 0
+                        ? "bg-yellow-500"
+                        : index === 1
+                        ? "bg-gray-400"
+                        : index === 2
+                        ? "bg-orange-700"
+                        : "bg-blue-500"
+                    }`}
+                  >
+                    {index + 1}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">
+                      {user.full_name || "İsimsiz"}
+                    </p>
+                    <p className="text-xs text-gray-500 capitalize">
+                      {user.role === "owner" ? "Baba/Anne" : user.role}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                    {user.current_points}
+                  </span>
+                  <span className="text-xs text-gray-400 ml-1">Puan</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { rewards: [] };
+        {/* ÖDÜL MARKETİ */}
+        {activeTab === "market" && (
+          <div className="space-y-3">
+            <Button
+              variant="outline"
+              className="w-full border-dashed"
+              onClick={() => setIsAddOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" /> Yeni Ödül Ekle
+            </Button>
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("family_id")
-    .eq("id", user.id)
-    .single();
+            <div className="grid grid-cols-2 gap-2">
+              {rewards.map(reward => (
+                <div
+                  key={reward.id}
+                  className="border rounded-lg p-3 flex flex-col items-center text-center gap-2 hover:border-blue-500 cursor-pointer transition-colors"
+                  onClick={() => handleRedeem(reward)}
+                >
+                  <div className="text-2xl">{reward.icon}</div>
+                  <p className="text-xs font-medium line-clamp-1">
+                    {reward.title}
+                  </p>
+                  <span className="text-xs font-bold bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
+                    {reward.cost} P
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-  if (!profile?.family_id) return { rewards: [] };
-
-  const { data: rewards } = await supabase
-    .from("rewards")
-    .select("*")
-    .eq("family_id", profile.family_id)
-    .order("cost", { ascending: true });
-
-  return { rewards: rewards || [] };
-}
-
-// 3. Ödül Ekle (DÜZELTİLEN KISIM)
-export async function createReward(formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Oturum açın" };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("family_id, role")
-    .eq("id", user.id)
-    .single();
-
-  // HATA ÇÖZÜMÜ: Profilin kesinlikle var olduğunu kontrol et
-  if (!profile) {
-    return { error: "Kullanıcı profili bulunamadı." };
-  }
-
-  // Aile ID'si var mı kontrol et
-  if (!profile.family_id) {
-    return { error: "Bir aileye bağlı değilsiniz." };
-  }
-
-  // Yetki kontrolü
-  if (!["owner", "admin"].includes(profile.role || "")) {
-    return { error: "Sadece ebeveynler ödül ekleyebilir." };
-  }
-
-  const title = formData.get("title") as string;
-  const cost = parseInt(formData.get("cost") as string);
-  const icon = formData.get("icon") as string;
-
-  // Artık profile.family_id'nin string olduğunu biliyoruz
-  const { error } = await supabase.from("rewards").insert({
-    family_id: profile.family_id,
-    title,
-    cost,
-    icon,
-  });
-
-  if (error) return { error: error.message };
-
-  revalidatePath("/dashboard");
-  return { success: true };
-}
-
-// 4. Ödül Satın Al (Redeem)
-export async function redeemReward(
-  rewardId: string,
-  cost: number,
-  rewardTitle: string
-) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return { error: "Hata" };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("current_points")
-    .eq("id", user.id)
-    .single();
-
-  if ((profile?.current_points || 0) < cost) {
-    return { error: "Yetersiz Puan!" };
-  }
-
-  const { error } = await supabase.rpc("add_points", {
-    target_user_id: user.id,
-    points_amount: -cost,
-    reason: `Ödül alındı: ${rewardTitle}`,
-  });
-
-  if (error) return { error: "İşlem başarısız: " + error.message };
-
-  revalidatePath("/dashboard");
-  return { success: true };
+        {/* ÖDÜL EKLEME MODALI */}
+        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Yeni Ödül Tanımla</DialogTitle>
+            </DialogHeader>
+            <form
+              action={async fd => {
+                await createReward(fd);
+                setIsAddOpen(false);
+                loadData();
+                toast.success("Ödül eklendi");
+              }}
+              className="space-y-3"
+            >
+              <Input
+                name="title"
+                placeholder="Ödül Adı (Örn: 1 Saat Oyun)"
+                required
+              />
+              <Input
+                name="cost"
+                type="number"
+                placeholder="Puan Değeri (Örn: 100)"
+                required
+              />
+              <div className="grid grid-cols-4 gap-2">
+                {["🎮", "🍦", "🎟️", "🍔", "📱", "⚽", "🎁", "wd"].map(icon => (
+                  <label
+                    key={icon}
+                    className="border p-2 rounded text-center cursor-pointer has-[:checked]:bg-blue-100"
+                  >
+                    <input
+                      type="radio"
+                      name="icon"
+                      value={icon}
+                      className="hidden"
+                      defaultChecked={icon === "🎁"}
+                    />
+                    {icon}
+                  </label>
+                ))}
+              </div>
+              <Button type="submit" className="w-full">
+                Kaydet
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
+  );
 }

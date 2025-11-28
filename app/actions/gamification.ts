@@ -12,7 +12,6 @@ export async function getLeaderboard() {
   } = await supabase.auth.getUser();
   if (!user) return { users: [] };
 
-  // Aile ID'sini bul
   const { data: profile } = await supabase
     .from("profiles")
     .select("family_id")
@@ -21,7 +20,6 @@ export async function getLeaderboard() {
 
   if (!profile?.family_id) return { users: [] };
 
-  // Puanlara göre sıralı kullanıcı listesi
   const { data: users } = await supabase
     .from("profiles")
     .select("id, full_name, avatar_url, current_points, role")
@@ -35,7 +33,6 @@ export async function getLeaderboard() {
 export async function getRewards() {
   const supabase = await createClient();
 
-  // Aile ID'sini bulmak için (Kısa yol: Session'dan user alıp query içinde kullanabiliriz ama bu daha güvenli)
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -58,7 +55,7 @@ export async function getRewards() {
   return { rewards: rewards || [] };
 }
 
-// 3. Ödül Ekle (Sadece Ebeveynler)
+// 3. Ödül Ekle (DÜZELTİLEN KISIM)
 export async function createReward(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -72,8 +69,18 @@ export async function createReward(formData: FormData) {
     .eq("id", user.id)
     .single();
 
+  // HATA ÇÖZÜMÜ: Profilin kesinlikle var olduğunu kontrol et
+  if (!profile) {
+    return { error: "Kullanıcı profili bulunamadı." };
+  }
+
+  // Aile ID'si var mı kontrol et
+  if (!profile.family_id) {
+    return { error: "Bir aileye bağlı değilsiniz." };
+  }
+
   // Yetki kontrolü
-  if (!["owner", "admin"].includes(profile?.role || "")) {
+  if (!["owner", "admin"].includes(profile.role || "")) {
     return { error: "Sadece ebeveynler ödül ekleyebilir." };
   }
 
@@ -81,6 +88,7 @@ export async function createReward(formData: FormData) {
   const cost = parseInt(formData.get("cost") as string);
   const icon = formData.get("icon") as string;
 
+  // Artık profile.family_id'nin string olduğunu biliyoruz
   const { error } = await supabase.from("rewards").insert({
     family_id: profile.family_id,
     title,
@@ -107,7 +115,6 @@ export async function redeemReward(
 
   if (!user) return { error: "Hata" };
 
-  // Kullanıcının puanı yetiyor mu kontrol et
   const { data: profile } = await supabase
     .from("profiles")
     .select("current_points")
@@ -118,10 +125,9 @@ export async function redeemReward(
     return { error: "Yetersiz Puan!" };
   }
 
-  // SQL Fonksiyonunu çağırarak puan düş (Eksi puan gönderiyoruz)
   const { error } = await supabase.rpc("add_points", {
     target_user_id: user.id,
-    points_amount: -cost, // Eksi değer = Puan düşme
+    points_amount: -cost,
     reason: `Ödül alındı: ${rewardTitle}`,
   });
 
