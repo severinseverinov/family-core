@@ -3,197 +3,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 
-export interface Event {
-  id: string;
-  title: string;
-  start_time: string;
-  end_time: string;
-  is_all_day: boolean;
-  privacy_level: "family" | "private";
-  family_id: string;
-  created_by: string;
-  created_at: string;
-}
-
-export async function getUpcomingEvents() {
-  const supabase = await createClient();
-
-  // Get authenticated user
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return { error: "You must be signed in to view events." };
-  }
-
-  // Get user's profile to find family_id
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("family_id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profileError) {
-    return { error: "Failed to load profile." };
-  }
-
-  if (!profile?.family_id) {
-    return { events: [] };
-  }
-
-  // Fetch upcoming events for the family
-  // Filter: start_time >= NOW()
-  // Order by: start_time ASC
-  // Limit: 5 events
-  const now = new Date().toISOString();
-  const { data: events, error: eventsError } = await supabase
-    .from("events")
-    .select("*")
-    .eq("family_id", profile.family_id)
-    .gte("start_time", now)
-    .order("start_time", { ascending: true })
-    .limit(5);
-
-  if (eventsError) {
-    return { error: "Failed to load events: " + eventsError.message };
-  }
-
-  return { events: events || [] };
-}
-
-export async function getEventsByDate(date: string) {
-  const supabase = await createClient();
-
-  // Get authenticated user
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return { error: "You must be signed in to view events." };
-  }
-
-  // Get user's profile to find family_id
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("family_id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profileError || !profile?.family_id) {
-    return { events: [] };
-  }
-
-  // Parse the date and create date range for the day
-  const selectedDate = new Date(date);
-  const startOfDay = new Date(selectedDate);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(selectedDate);
-  endOfDay.setHours(23, 59, 59, 999);
-
-  // Fetch events for the specific date
-  const { data: events, error: eventsError } = await supabase
-    .from("events")
-    .select("*")
-    .eq("family_id", profile.family_id)
-    .gte("start_time", startOfDay.toISOString())
-    .lte("start_time", endOfDay.toISOString())
-    .order("start_time", { ascending: true });
-
-  if (eventsError) {
-    return { error: "Failed to load events: " + eventsError.message };
-  }
-
-  return { events: events || [] };
-}
-
-export async function createEvent(formData: FormData) {
-  const supabase = await createClient();
-
-  // Get authenticated user
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return { error: "You must be signed in to create events." };
-  }
-
-  // Get user's profile to find family_id
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("family_id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profileError || !profile?.family_id) {
-    return { error: "You must belong to a family to create events." };
-  }
-
-  // Extract and validate form data
-  const title = formData.get("title")?.toString().trim();
-  const startTimeInput = formData.get("start_time")?.toString().trim();
-  const endTimeInput = formData.get("end_time")?.toString().trim();
-  const isAllDay = formData.get("is_all_day") === "true";
-  const privacyLevel = formData.get("privacy_level")?.toString().trim() as
-    | "family"
-    | "private";
-
-  if (!title || title.length === 0) {
-    return { error: "Event title is required." };
-  }
-
-  if (!startTimeInput || !endTimeInput) {
-    return { error: "Start and end times are required." };
-  }
-
-  if (
-    !privacyLevel ||
-    (privacyLevel !== "family" && privacyLevel !== "private")
-  ) {
-    return { error: "Privacy level must be 'family' or 'private'." };
-  }
-
-  // Convert datetime-local input string to ISO string
-  // datetime-local format: "YYYY-MM-DDTHH:mm"
-  // We need to convert to ISO 8601 format for Supabase
-  const startTimeISO = new Date(startTimeInput).toISOString();
-  const endTimeISO = new Date(endTimeInput).toISOString();
-
-  // Validate that end time is after start time
-  if (new Date(endTimeISO) <= new Date(startTimeISO)) {
-    return { error: "End time must be after start time." };
-  }
-
-  // Insert new event
-  const { data: event, error: insertError } = await supabase
-    .from("events")
-    .insert({
-      title,
-      start_time: startTimeISO,
-      end_time: endTimeISO,
-      is_all_day: isAllDay,
-      privacy_level: privacyLevel,
-      family_id: profile.family_id,
-      created_by: user.id,
-    })
-    .select()
-    .single();
-
-  if (insertError) {
-    return { error: "Failed to create event: " + insertError.message };
-  }
-
-  revalidatePath("/dashboard");
-
-  return { success: true, event };
-}
-
-// Yeni eklenen tip tanımlaması
 export interface Holiday {
   date: string;
   localName: string;
@@ -201,25 +10,181 @@ export interface Holiday {
   countryCode: string;
 }
 
-// Resmi Tatilleri Çeken Fonksiyon (Nager.Date API kullanır - Ücretsizdir)
-export async function getPublicHolidays(countryCode: string) {
-  const year = new Date().getFullYear();
+export interface DashboardItem {
+  id: string;
+  type: "event" | "task";
+  title: string;
+  time?: string;
+  is_completed?: boolean;
+  completed_by?: string;
+  points?: number;
+  pet_name?: string;
+  pet_color?: string;
+  routine_id?: string;
+}
 
+export async function getPublicHolidays(countryCode: string = "TR") {
+  const year = new Date().getFullYear();
   try {
-    // API'den veriyi çek
     const response = await fetch(
       `https://date.nager.at/api/v3/publicholidays/${year}/${countryCode}`,
       {
-        next: { revalidate: 86400 }, // 24 saat önbellekte tut (her gün sorgulama yapmasın)
+        next: { revalidate: 86400 },
       }
     );
-
     if (!response.ok) return [];
-
-    const holidays: Holiday[] = await response.json();
-    return holidays;
+    return (await response.json()) as Holiday[];
   } catch (error) {
-    console.error("Tatil verisi çekilemedi:", error);
     return [];
   }
+}
+
+// GÜNCELLENDİ: Tarihe göre verileri getir
+export async function getDashboardItems(dateStr?: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { items: [] };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("family_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.family_id) return { items: [] };
+
+  // Hedef Tarih
+  const targetDate = dateStr ? new Date(dateStr) : new Date();
+  const targetDateStart = targetDate.toISOString().split("T")[0] + "T00:00:00";
+  const targetDateEnd = targetDate.toISOString().split("T")[0] + "T23:59:59";
+
+  // 1. Etkinlikleri Çek (O güne ait olanlar)
+  const { data: events } = await supabase
+    .from("events")
+    .select("id, title, start_time")
+    .eq("family_id", profile.family_id)
+    .gte("start_time", targetDateStart)
+    .lte("start_time", targetDateEnd)
+    .order("start_time", { ascending: true });
+
+  // 2. Rutinleri Çek
+  const { data: routines } = await supabase
+    .from("pet_routines")
+    .select(
+      `
+      id, title, points, frequency, created_at,
+      pets (name, color)
+    `
+    )
+    .eq("family_id", profile.family_id);
+
+  const dashboardItems: DashboardItem[] = [];
+
+  // Etkinlikleri Listeye Ekle
+  events?.forEach(e => {
+    dashboardItems.push({
+      id: e.id,
+      type: "event",
+      title: e.title,
+      time: e.start_time,
+    });
+  });
+
+  // Rutinleri Filtrele ve Listeye Ekle
+  if (routines) {
+    for (const routine of routines) {
+      const startDate = new Date(routine.created_at);
+
+      // Gelecekteki görevleri gösterme
+      if (
+        startDate > targetDate &&
+        startDate.toDateString() !== targetDate.toDateString()
+      )
+        continue;
+
+      let shouldShow = false;
+
+      // SIKLIK KONTROLÜ
+      if (routine.frequency === "daily") {
+        shouldShow = true;
+      } else if (routine.frequency === "weekly") {
+        // Haftanın aynı günü mü? (0-6)
+        if (startDate.getDay() === targetDate.getDay()) shouldShow = true;
+      } else if (routine.frequency === "monthly") {
+        // Ayın aynı günü mü? (1-31)
+        if (startDate.getDate() === targetDate.getDate()) shouldShow = true;
+      } else if (routine.frequency === "yearly") {
+        // Yılın aynı ayı ve günü mü?
+        if (
+          startDate.getDate() === targetDate.getDate() &&
+          startDate.getMonth() === targetDate.getMonth()
+        )
+          shouldShow = true;
+      }
+
+      if (shouldShow) {
+        // O gün yapılmış mı?
+        const { data: log } = await supabase
+          .from("pet_task_logs")
+          .select("profiles(full_name)")
+          .eq("routine_id", routine.id)
+          .gte("completed_at", targetDateStart)
+          .lte("completed_at", targetDateEnd)
+          .maybeSingle();
+
+        dashboardItems.push({
+          id: routine.id,
+          routine_id: routine.id,
+          type: "task",
+          title: routine.title,
+          points: routine.points,
+          // @ts-ignore
+          pet_name: routine.pets?.name,
+          // @ts-ignore
+          pet_color: routine.pets?.color,
+          is_completed: !!log,
+          // @ts-ignore
+          completed_by: log?.profiles?.full_name || null,
+        });
+      }
+    }
+  }
+
+  return { items: dashboardItems };
+}
+
+export async function createEvent(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum açın" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("family_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.family_id) return { error: "Aile yok" };
+
+  const title = formData.get("title") as string;
+  const start_time = new Date(
+    formData.get("start_time") as string
+  ).toISOString();
+  const end_time = new Date(formData.get("end_time") as string).toISOString();
+  const privacy_level = formData.get("privacy_level") as string;
+
+  const { error } = await supabase.from("events").insert({
+    family_id: profile.family_id,
+    created_by: user.id,
+    title,
+    start_time,
+    end_time,
+    privacy_level,
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath("/dashboard");
+  return { success: true };
 }

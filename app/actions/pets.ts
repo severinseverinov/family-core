@@ -12,104 +12,158 @@ export interface Pet {
   created_at: string;
 }
 
+export interface PetRoutine {
+  id: string;
+  pet_id: string;
+  title: string;
+  points: number;
+  frequency: string;
+}
+
+// 1. Hayvanları Getir
 export async function getPets() {
   const supabase = await createClient();
-
-  // Get authenticated user
   const {
     data: { user },
-    error: authError,
   } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum açın" };
 
-  if (authError || !user) {
-    return { error: "You must be signed in to view pets." };
-  }
-
-  // Get user's profile to find family_id
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile } = await supabase
     .from("profiles")
     .select("family_id")
     .eq("id", user.id)
-    .maybeSingle();
+    .single();
+  if (!profile?.family_id) return { pets: [] };
 
-  if (profileError) {
-    return { error: "Failed to load profile." };
-  }
-
-  if (!profile?.family_id) {
-    return { pets: [] };
-  }
-
-  // Fetch pets for the family
-  const { data: pets, error: petsError } = await supabase
+  const { data: pets } = await supabase
     .from("pets")
     .select("*")
     .eq("family_id", profile.family_id)
     .order("created_at", { ascending: false });
 
-  if (petsError) {
-    return { error: "Failed to load pets: " + petsError.message };
-  }
-
   return { pets: pets || [] };
 }
 
+// 2. Yeni Hayvan Ekle
 export async function addPet(formData: FormData) {
   const supabase = await createClient();
-
-  // Get authenticated user
   const {
     data: { user },
-    error: authError,
   } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum açın" };
 
-  if (authError || !user) {
-    return { error: "You must be signed in to add pets." };
-  }
-
-  // Get user's profile to find family_id
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile } = await supabase
     .from("profiles")
     .select("family_id")
     .eq("id", user.id)
-    .maybeSingle();
-
-  if (profileError || !profile?.family_id) {
-    return { error: "You must belong to a family to add pets." };
-  }
-
-  // Extract and validate form data
-  const name = formData.get("name")?.toString().trim();
-  const type = formData.get("type")?.toString().trim();
-  const color = formData.get("color")?.toString().trim() || null;
-
-  if (!name || name.length === 0) {
-    return { error: "Pet name is required." };
-  }
-
-  if (!type || type.length === 0) {
-    return { error: "Pet type is required." };
-  }
-
-  // Insert new pet
-  const { data: pet, error: insertError } = await supabase
-    .from("pets")
-    .insert({
-      name,
-      type,
-      color,
-      family_id: profile.family_id,
-    })
-    .select()
     .single();
+  if (!profile?.family_id) return { error: "Aile bulunamadı" };
 
-  if (insertError) {
-    return { error: "Failed to add pet: " + insertError.message };
-  }
+  const name = formData.get("name") as string;
+  const type = formData.get("type") as string;
+  const color = formData.get("color") as string;
 
+  const { error } = await supabase.from("pets").insert({
+    name,
+    type,
+    color,
+    family_id: profile.family_id,
+  });
+
+  if (error) return { error: error.message };
   revalidatePath("/dashboard");
-
-  return { success: true, pet };
+  return { success: true };
 }
 
+// 3. Rutin Ekle (GÜNCELLENDİ: Sıklık ve Tarih)
+export async function addPetRoutine(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum açın" };
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("family_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.family_id) return { error: "Hata" };
+
+  const petId = formData.get("petId") as string;
+  const title = formData.get("title") as string;
+  const points = parseInt(formData.get("points") as string);
+  const frequency = (formData.get("frequency") as string) || "daily";
+
+  // Başlangıç tarihi (Varsayılan: Bugün)
+  // Bu tarih, haftalık/aylık tekrarların "hangi gün" olacağını belirler.
+  const startDate =
+    (formData.get("startDate") as string) || new Date().toISOString();
+
+  const { error } = await supabase.from("pet_routines").insert({
+    family_id: profile.family_id,
+    pet_id: petId,
+    title,
+    points,
+    frequency,
+    created_at: startDate, // Başlangıç tarihini referans olarak created_at'e kaydediyoruz
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+// 4. Görevi Tamamla
+export async function completePetTask(routineId: string, dateStr?: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum açın" };
+
+  const { data: routine } = await supabase
+    .from("pet_routines")
+    .select("points, title, family_id")
+    .eq("id", routineId)
+    .single();
+
+  if (!routine) return { error: "Rutin bulunamadı" };
+
+  // Hangi gün için yapılıyor? (Varsayılan: Bugün)
+  const targetDate = dateStr ? new Date(dateStr) : new Date();
+  const targetDateStart = targetDate.toISOString().split("T")[0] + "T00:00:00";
+  const targetDateEnd = targetDate.toISOString().split("T")[0] + "T23:59:59";
+
+  // O gün zaten yapılmış mı?
+  const { data: existingLog } = await supabase
+    .from("pet_task_logs")
+    .select("id")
+    .eq("routine_id", routineId)
+    .gte("completed_at", targetDateStart)
+    .lte("completed_at", targetDateEnd)
+    .single();
+
+  if (existingLog) return { error: "Bu görev o gün zaten yapılmış!" };
+
+  // Log Oluştur (Tarih olarak seçilen günü kaydediyoruz)
+  const { error: logError } = await supabase.from("pet_task_logs").insert({
+    routine_id: routineId,
+    profile_id: user.id,
+    completed_at: targetDate.toISOString(), // Seçilen güne işle
+  });
+
+  if (logError) return { error: "Log hatası: " + logError.message };
+
+  // Puan Ver
+  const { error: pointError } = await supabase.rpc("add_points", {
+    target_user_id: user.id,
+    points_amount: routine.points,
+    reason: `Görev: ${routine.title}`,
+  });
+
+  if (pointError) return { error: "Puan eklenemedi" };
+
+  revalidatePath("/dashboard");
+  return { success: true, points: routine.points };
+}

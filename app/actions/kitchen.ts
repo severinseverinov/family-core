@@ -6,34 +6,94 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // API Anahtarı Kontrolü
 const apiKey = process.env.GEMINI_API_KEY;
-if (!apiKey) {
-  console.error("GEMINI_API_KEY bulunamadı!");
-}
+const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
-const genAI = new GoogleGenerativeAI(apiKey!);
-
-export async function scanReceipt(formData: FormData) {
+// 1. Envanteri Getir
+export async function getInventory() {
   const supabase = await createClient();
-
-  // 1. Kullanıcı Kontrolü
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Oturum açmanız gerekiyor." };
+  if (!user) return { items: [] };
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("family_id")
     .eq("id", user.id)
     .single();
+  if (!profile?.family_id) return { items: [] };
 
-  if (!profile?.family_id) return { error: "Bir aileye bağlı değilsiniz." };
+  const { data } = await supabase
+    .from("inventory")
+    .select("*")
+    .eq("family_id", profile.family_id)
+    .order("created_at", { ascending: false }); // En son eklenen en üstte
 
-  // 2. Dosyayı Al
+  return { items: data || [] };
+}
+
+// 2. Manuel Ürün Ekle
+export async function addInventoryItem(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum açın" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("family_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.family_id) return { error: "Aile bulunamadı" };
+
+  const name = formData.get("name") as string;
+  const quantity = parseFloat(formData.get("quantity") as string);
+  const unit = formData.get("unit") as string;
+  const category = formData.get("category") as string;
+
+  const { error } = await supabase.from("inventory").insert({
+    family_id: profile.family_id,
+    product_name: name,
+    quantity,
+    unit,
+    category,
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+// 3. Ürün Sil
+export async function deleteInventoryItem(id: string) {
+  const supabase = await createClient();
+  await supabase.from("inventory").delete().eq("id", id);
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+// 4. Fiş Okuma (Gemini AI)
+export async function scanReceipt(formData: FormData) {
+  const supabase = await createClient();
+
+  // Kullanıcı ve Aile Kontrolü
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum açın" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("family_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.family_id) return { error: "Aile yok" };
+
+  // Dosya Yükleme
   const file = formData.get("receipt") as File;
-  if (!file) return { error: "Dosya bulunamadı." };
+  if (!file) return { error: "Dosya yok" };
 
-  // 3. Dosyayı Supabase Storage'a Yükle
   const fileExt = file.name.split(".").pop();
   const fileName = `${user.id}-${Date.now()}.${fileExt}`;
   const filePath = `receipts/${fileName}`;
@@ -41,64 +101,46 @@ export async function scanReceipt(formData: FormData) {
   const { error: uploadError } = await supabase.storage
     .from("images")
     .upload(filePath, file);
-
-  if (uploadError) {
-    console.error("Upload hatası:", uploadError);
-  }
+  if (uploadError) console.error("Upload hatası:", uploadError);
 
   const {
     data: { publicUrl },
   } = supabase.storage.from("images").getPublicUrl(filePath);
 
-  // 4. Gemini AI ile Analiz Et
+  // AI Analizi
   try {
+    if (!genAI) throw new Error("API Anahtarı eksik (GEMINI_API_KEY)");
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const base64Data = buffer.toString("base64");
 
-    // MODEL GÜNCELLEMESİ: 'gemini-1.5-flash-latest' kullanıyoruz (Daha güvenli)
-    // Eğer yine hata alırsan 'gemini-1.5-pro' deneyebilirsin.
     const model = genAI.getGenerativeModel({
-      model: "gemini-flash-latest",
+      model: "gemini-1.5-flash-latest",
     });
 
     const prompt = `
-      Sen uzman bir fiş analistisin. Görüntüdeki market fişini analiz et.
-      Ürün isimlerini genel, sade isimlere dönüştür (Örn: "Pınar Yarım Yağlı Süt 1L" -> "Süt").
-      
-      Çıktıyı SADECE aşağıdaki JSON formatında ver, markdown veya 'json' etiketi kullanma:
-      {
-        "shop_name": "Market Adı",
-        "total_amount": 150.50,
-        "items": [
-          { "name": "Süt", "quantity": 1, "category": "Gıda", "unit": "litre" },
-          { "name": "Domates", "quantity": 2, "category": "Sebze", "unit": "kg" }
-        ]
-      }
+      Market fişini analiz et ve ürünleri JSON olarak ver.
+      Format: { "shop_name": string, "total_amount": number, "items": [{ "name": string, "quantity": number, "unit": string, "category": string }] }
+      Ürün isimlerini sadeleştir. Birim yoksa "adet" yaz. Kategori örnekleri: Gıda, Temizlik, Sebze.
+      Sadece JSON ver.
     `;
 
     const result = await model.generateContent([
       prompt,
-      {
-        inlineData: {
-          data: base64Data,
-          mimeType: file.type || "image/jpeg",
-        },
-      },
+      { inlineData: { data: base64Data, mimeType: file.type || "image/jpeg" } },
     ]);
 
     const response = await result.response;
-    let text = response.text();
-
-    // Temizlik
-    text = text
+    const text = response
+      .text()
       .replace(/```json/g, "")
       .replace(/```/g, "")
       .trim();
     const data = JSON.parse(text);
 
-    // 5. Veritabanına Kaydet
-    const { error: expenseError } = await supabase.from("expenses").insert({
+    // Veritabanına Yazma
+    await supabase.from("expenses").insert({
       family_id: profile.family_id,
       amount: data.total_amount,
       shop_name: data.shop_name,
@@ -106,10 +148,8 @@ export async function scanReceipt(formData: FormData) {
       items_json: data.items,
     });
 
-    if (expenseError)
-      throw new Error("Harcama kaydedilemedi: " + expenseError.message);
-
     for (const item of data.items) {
+      // Aynı ürün varsa miktarını artır, yoksa ekle
       const { data: existing } = await supabase
         .from("inventory")
         .select("id, quantity")
@@ -128,21 +168,15 @@ export async function scanReceipt(formData: FormData) {
           product_name: item.name,
           quantity: item.quantity,
           unit: item.unit || "adet",
-          category: item.category || "genel",
+          category: item.category || "Genel",
         });
       }
     }
 
     revalidatePath("/dashboard");
-    return { success: true, data: data };
+    return { success: true, data };
   } catch (error: any) {
-    console.error("Gemini Hatası:", error);
-    // Hata mesajını daha anlaşılır hale getirelim
-    const errorMessage =
-      error.status === 404
-        ? "AI Modeli bulunamadı. API Anahtarınızı ve model ismini kontrol edin."
-        : error.message || "Bilinmeyen hata";
-
-    return { error: "Fiş okunamadı: " + errorMessage };
+    console.error("AI Hatası:", error);
+    return { error: "Fiş okunamadı: " + error.message };
   }
 }
