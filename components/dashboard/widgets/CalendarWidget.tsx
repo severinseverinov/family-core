@@ -175,11 +175,11 @@ export function CalendarWidget({
                       <p className="text-xs font-bold text-gray-800 dark:text-gray-200">
                         {event.title}
                       </p>
+                      {/* DÜZELTME: Repeat ikonunu span içine aldık */}
                       {event.frequency && event.frequency !== "none" && (
-                        <Repeat
-                          className="h-3 w-3 text-gray-400"
-                          title="Tekrarlı"
-                        />
+                        <span title="Tekrarlı">
+                          <Repeat className="h-3 w-3 text-gray-400" />
+                        </span>
                       )}
                     </div>
                     <p className="text-[10px] text-gray-500">
@@ -211,6 +211,7 @@ export function CalendarWidget({
                     >
                       <PawPrint className="h-4 w-4" />
                     </div>
+
                     <div>
                       <p
                         className={`text-xs font-bold ${
@@ -233,6 +234,7 @@ export function CalendarWidget({
                       </div>
                     </div>
                   </div>
+
                   {!task.is_completed && (
                     <Button
                       size="sm"
