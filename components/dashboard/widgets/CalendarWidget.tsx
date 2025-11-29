@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
-import { Plus, Calendar as CalIcon, PawPrint } from "lucide-react";
+import { Plus, Calendar as CalIcon, PawPrint, Repeat } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -12,7 +12,7 @@ import {
   getDashboardItems,
   type Holiday,
   type DashboardItem,
-} from "@/app/actions/events"; // getDashboardItems Client'tan çağrılacak
+} from "@/app/actions/events";
 import { completePetTask } from "@/app/actions/pets";
 
 import { Calendar } from "@/components/ui/calendar";
@@ -25,6 +25,17 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+// Günler Listesi (JS getDay() uyumlu: 1=Pzt ... 0=Pz)
+const WEEKDAYS = [
+  { id: 1, label: "Pt" },
+  { id: 2, label: "Sa" },
+  { id: 3, label: "Ça" },
+  { id: 4, label: "Pe" },
+  { id: 5, label: "Cu" },
+  { id: 6, label: "Ct" },
+  { id: 0, label: "Pz" },
+];
 
 interface CalendarWidgetProps {
   initialItems: DashboardItem[];
@@ -41,12 +52,15 @@ export function CalendarWidget({
     new Date()
   );
 
-  // State: Verileri state'de tutuyoruz ki güncelleyebilelim
   const [items, setItems] = useState<DashboardItem[]>(initialItems);
   const [holidays, setHolidays] = useState<Holiday[]>(initialHolidays);
   const [loading, setLoading] = useState(false);
 
-  // Tarih değiştiğinde verileri getir
+  // Form State
+  const [frequency, setFrequency] = useState("none");
+  const [selectedWeekDays, setSelectedWeekDays] = useState<number[]>([]);
+
+  // Tarih değiştiğinde
   const fetchItemsForDate = async (date: Date) => {
     setLoading(true);
     try {
@@ -62,28 +76,33 @@ export function CalendarWidget({
 
   const handleDayClick = (date: Date) => {
     setSelectedDate(date);
-    fetchItemsForDate(date); // Seçilen günün verilerini çek
+    fetchItemsForDate(date);
   };
 
   const handleCompleteTask = async (routineId: string, points: number) => {
-    // Tarih seçili değilse bugünü baz al
     const dateStr = selectedDate
       ? selectedDate.toISOString()
       : new Date().toISOString();
-
     const res = await completePetTask(routineId, dateStr);
     if (res.error) {
       toast.error(res.error);
     } else {
       toast.success(`Harika! +${points} Puan kazandın 🎉`);
-      if (selectedDate) fetchItemsForDate(selectedDate); // Listeyi güncelle
-      router.refresh(); // Puan tablosunu güncelle
+      if (selectedDate) fetchItemsForDate(selectedDate);
+      router.refresh();
     }
   };
 
   const getHolidayForDate = (date: Date) => {
     const dateStr = format(date, "yyyy-MM-dd");
     return holidays.find(h => h.date === dateStr);
+  };
+
+  // Gün seçimi değiştirme
+  const toggleWeekDay = (dayId: number) => {
+    setSelectedWeekDays(prev =>
+      prev.includes(dayId) ? prev.filter(d => d !== dayId) : [...prev, dayId]
+    );
   };
 
   return (
@@ -151,10 +170,18 @@ export function CalendarWidget({
                   className="flex items-center gap-2 p-2 bg-white rounded border border-l-4 border-l-blue-500 shadow-sm"
                 >
                   <CalIcon className="h-4 w-4 text-blue-500" />
-                  <div>
-                    <p className="text-xs font-bold text-gray-800 dark:text-gray-200">
-                      {event.title}
-                    </p>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-center">
+                      <p className="text-xs font-bold text-gray-800 dark:text-gray-200">
+                        {event.title}
+                      </p>
+                      {event.frequency && event.frequency !== "none" && (
+                        <Repeat
+                          className="h-3 w-3 text-gray-400"
+                          title="Tekrarlı"
+                        />
+                      )}
+                    </div>
                     <p className="text-[10px] text-gray-500">
                       {event.time
                         ? format(new Date(event.time), "HH:mm")
@@ -184,7 +211,6 @@ export function CalendarWidget({
                     >
                       <PawPrint className="h-4 w-4" />
                     </div>
-
                     <div>
                       <p
                         className={`text-xs font-bold ${
@@ -207,7 +233,6 @@ export function CalendarWidget({
                       </div>
                     </div>
                   </div>
-
                   {!task.is_completed && (
                     <Button
                       size="sm"
@@ -234,7 +259,7 @@ export function CalendarWidget({
 
         {/* YENİ ETKİNLİK MODALI */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Yeni Etkinlik</DialogTitle>
               <DialogDescription>
@@ -243,45 +268,127 @@ export function CalendarWidget({
             </DialogHeader>
             <form
               action={async fd => {
-                fd.append("date", selectedDate?.toISOString() || "");
+                // Seçilen tarihi form data'ya ekle
+                const dateVal = selectedDate
+                  ? format(selectedDate, "yyyy-MM-dd")
+                  : format(new Date(), "yyyy-MM-dd");
+                const startTime = fd.get("start_time_only") as string;
+                const endTime = fd.get("end_time_only") as string;
+
+                fd.append("start_time", `${dateVal}T${startTime}`);
+                fd.append("end_time", `${dateVal}T${endTime}`);
+
+                // Seçilen günleri gönder (Haftalık ise)
+                if (frequency === "weekly" && selectedWeekDays.length > 0) {
+                  fd.append("recurrence_days", selectedWeekDays.join(","));
+                }
+
                 const res = await createEvent(fd);
                 if (res?.error) toast.error(res.error);
                 else {
                   setIsDialogOpen(false);
                   toast.success("Eklendi");
+                  setFrequency("none"); // Reset
+                  setSelectedWeekDays([]); // Reset
                   if (selectedDate) fetchItemsForDate(selectedDate);
                 }
               }}
               className="space-y-3"
             >
-              <input
-                name="title"
-                placeholder="Başlık"
-                className="w-full border p-2 rounded text-sm"
-                required
-              />
-              <div className="flex gap-2">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Başlık</label>
                 <input
-                  type="time"
-                  name="start_time"
+                  name="title"
+                  placeholder="Örn: Akşam Yemeği"
+                  className="w-full border p-2 rounded text-sm"
                   required
-                  className="border p-2 rounded text-sm w-1/2"
-                />
-                <input
-                  type="time"
-                  name="end_time"
-                  required
-                  className="border p-2 rounded text-sm w-1/2"
                 />
               </div>
-              <select
-                name="privacy_level"
-                className="w-full border p-2 rounded text-sm"
-              >
-                <option value="family">Tüm Aile</option>
-                <option value="private">Gizli</option>
-              </select>
-              <Button type="submit" className="w-full">
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Başlangıç</label>
+                  <input
+                    type="time"
+                    name="start_time_only"
+                    required
+                    className="w-full border p-2 rounded text-sm"
+                    defaultValue="09:00"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Bitiş</label>
+                  <input
+                    type="time"
+                    name="end_time_only"
+                    required
+                    className="w-full border p-2 rounded text-sm"
+                    defaultValue="10:00"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Görünürlük</label>
+                  <select
+                    name="privacy_level"
+                    className="w-full border p-2 rounded text-sm bg-background"
+                  >
+                    <option value="family">Tüm Aile</option>
+                    <option value="private">Gizli</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Tekrar</label>
+                  <select
+                    name="frequency"
+                    className="w-full border p-2 rounded text-sm bg-background"
+                    value={frequency}
+                    onChange={e => setFrequency(e.target.value)}
+                  >
+                    <option value="none">Tek Seferlik</option>
+                    <option value="daily">Her Gün</option>
+                    <option value="weekly">Haftalık</option>
+                    <option value="monthly">Her Ay</option>
+                    <option value="yearly">Her Yıl</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* GÜN SEÇİCİ (Sadece Haftalık seçilirse görünür) */}
+              {frequency === "weekly" && (
+                <div className="space-y-2 bg-gray-50 p-2 rounded border border-dashed">
+                  <label className="text-xs font-medium text-gray-500">
+                    Hangi Günler?
+                  </label>
+                  <div className="flex justify-between">
+                    {WEEKDAYS.map(day => (
+                      <button
+                        type="button"
+                        key={day.id}
+                        onClick={() => toggleWeekDay(day.id)}
+                        className={`w-8 h-8 rounded-full text-xs font-medium transition-all ${
+                          selectedWeekDays.includes(day.id)
+                            ? "bg-blue-600 text-white shadow-md scale-110"
+                            : "bg-white border text-gray-600 hover:bg-gray-100"
+                        }`}
+                      >
+                        {day.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-gray-400 text-center">
+                    Hiçbiri seçilmezse sadece{" "}
+                    {selectedDate
+                      ? format(selectedDate, "EEEE", { locale: tr })
+                      : "seçili gün"}{" "}
+                    tekrar eder.
+                  </p>
+                </div>
+              )}
+
+              <Button type="submit" className="w-full mt-2">
                 Kaydet
               </Button>
             </form>

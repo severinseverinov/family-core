@@ -21,6 +21,7 @@ export interface DashboardItem {
   pet_name?: string;
   pet_color?: string;
   routine_id?: string;
+  frequency?: string;
 }
 
 export async function getPublicHolidays(countryCode: string = "TR") {
@@ -39,7 +40,7 @@ export async function getPublicHolidays(countryCode: string = "TR") {
   }
 }
 
-// GÜNCELLENDİ: Tarihe göre verileri getir
+// GÜNCELLENDİ: Özel Gün Tekrarı (recurrence_days) Desteği
 export async function getDashboardItems(dateStr?: string) {
   const supabase = await createClient();
   const {
@@ -59,63 +60,65 @@ export async function getDashboardItems(dateStr?: string) {
   const targetDateStart = targetDate.toISOString().split("T")[0] + "T00:00:00";
   const targetDateEnd = targetDate.toISOString().split("T")[0] + "T23:59:59";
 
-  // 1. Etkinlikleri Çek (O güne ait olanlar)
-  const { data: events } = await supabase
+  // 1. TEK SEFERLİK ETKİNLİKLER
+  const { data: oneTimeEvents } = await supabase
     .from("events")
-    .select("id, title, start_time")
+    .select("*")
     .eq("family_id", profile.family_id)
+    .or("frequency.eq.none,frequency.is.null")
     .gte("start_time", targetDateStart)
     .lte("start_time", targetDateEnd)
     .order("start_time", { ascending: true });
 
-  // 2. Rutinleri Çek
+  // 2. TEKRARLAYAN ETKİNLİKLER (recurrence_days dahil)
+  const { data: recurringEvents } = await supabase
+    .from("events")
+    .select("*")
+    .eq("family_id", profile.family_id)
+    .neq("frequency", "none")
+    .lte("start_time", targetDateEnd);
+
+  // 3. EVCİL HAYVAN RUTİNLERİ
   const { data: routines } = await supabase
     .from("pet_routines")
-    .select(
-      `
-      id, title, points, frequency, created_at,
-      pets (name, color)
-    `
-    )
+    .select(`id, title, points, frequency, created_at, pets (name, color)`)
     .eq("family_id", profile.family_id);
 
   const dashboardItems: DashboardItem[] = [];
 
-  // Etkinlikleri Listeye Ekle
-  events?.forEach(e => {
+  // A) Tek Seferlikler
+  oneTimeEvents?.forEach(e => {
     dashboardItems.push({
       id: e.id,
       type: "event",
       title: e.title,
       time: e.start_time,
+      frequency: "none",
     });
   });
 
-  // Rutinleri Filtrele ve Listeye Ekle
-  if (routines) {
-    for (const routine of routines) {
-      const startDate = new Date(routine.created_at);
-
-      // Gelecekteki görevleri gösterme
-      if (
-        startDate > targetDate &&
-        startDate.toDateString() !== targetDate.toDateString()
-      )
-        continue;
-
+  // B) Tekrarlayanlar
+  if (recurringEvents) {
+    for (const event of recurringEvents) {
+      const startDate = new Date(event.start_time);
       let shouldShow = false;
 
-      // SIKLIK KONTROLÜ
-      if (routine.frequency === "daily") {
+      if (event.frequency === "daily") {
         shouldShow = true;
-      } else if (routine.frequency === "weekly") {
-        // Haftanın aynı günü mü? (0-6)
-        if (startDate.getDay() === targetDate.getDay()) shouldShow = true;
-      } else if (routine.frequency === "monthly") {
-        // Ayın aynı günü mü? (1-31)
+      } else if (event.frequency === "weekly") {
+        // Eğer özel günler seçilmişse (recurrence_days varsa)
+        if (event.recurrence_days && event.recurrence_days.length > 0) {
+          // JS'de 0=Pazar, 1=Pzt... Veritabanına da böyle kaydedeceğiz.
+          if (event.recurrence_days.includes(targetDate.getDay())) {
+            shouldShow = true;
+          }
+        } else {
+          // Yoksa sadece başladığı gün tekrar etsin (Eski mantık)
+          if (startDate.getDay() === targetDate.getDay()) shouldShow = true;
+        }
+      } else if (event.frequency === "monthly") {
         if (startDate.getDate() === targetDate.getDate()) shouldShow = true;
-      } else if (routine.frequency === "yearly") {
-        // Yılın aynı ayı ve günü mü?
+      } else if (event.frequency === "yearly") {
         if (
           startDate.getDate() === targetDate.getDate() &&
           startDate.getMonth() === targetDate.getMonth()
@@ -124,7 +127,47 @@ export async function getDashboardItems(dateStr?: string) {
       }
 
       if (shouldShow) {
-        // O gün yapılmış mı?
+        dashboardItems.push({
+          id: event.id,
+          type: "event",
+          title: event.title,
+          time: event.start_time,
+          frequency: event.frequency,
+        });
+      }
+    }
+  }
+
+  // C) Rutinler
+  if (routines) {
+    for (const routine of routines) {
+      const startDate = new Date(routine.created_at);
+      if (
+        startDate > targetDate &&
+        startDate.toDateString() !== targetDate.toDateString()
+      )
+        continue;
+
+      let shouldShow = false;
+      if (routine.frequency === "daily") shouldShow = true;
+      else if (
+        routine.frequency === "weekly" &&
+        startDate.getDay() === targetDate.getDay()
+      )
+        shouldShow = true;
+      else if (
+        routine.frequency === "monthly" &&
+        startDate.getDate() === targetDate.getDate()
+      )
+        shouldShow = true;
+      else if (
+        routine.frequency === "yearly" &&
+        startDate.getDate() === targetDate.getDate() &&
+        startDate.getMonth() === targetDate.getMonth()
+      )
+        shouldShow = true;
+
+      if (shouldShow) {
         const { data: log } = await supabase
           .from("pet_task_logs")
           .select("profiles(full_name)")
@@ -141,10 +184,8 @@ export async function getDashboardItems(dateStr?: string) {
           points: routine.points,
           // @ts-ignore
           pet_name: routine.pets?.name,
-          // @ts-ignore
           pet_color: routine.pets?.color,
           is_completed: !!log,
-          // @ts-ignore
           completed_by: log?.profiles?.full_name || null,
         });
       }
@@ -154,6 +195,7 @@ export async function getDashboardItems(dateStr?: string) {
   return { items: dashboardItems };
 }
 
+// GÜNCELLENDİ: recurrence_days parametresini işle
 export async function createEvent(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -174,6 +216,13 @@ export async function createEvent(formData: FormData) {
   ).toISOString();
   const end_time = new Date(formData.get("end_time") as string).toISOString();
   const privacy_level = formData.get("privacy_level") as string;
+  const frequency = (formData.get("frequency") as string) || "none";
+
+  // Seçilen günleri al (String "1,3,5" -> Array [1,3,5])
+  const recurrenceDaysStr = formData.get("recurrence_days") as string;
+  const recurrence_days = recurrenceDaysStr
+    ? recurrenceDaysStr.split(",").map(Number)
+    : null;
 
   const { error } = await supabase.from("events").insert({
     family_id: profile.family_id,
@@ -182,6 +231,8 @@ export async function createEvent(formData: FormData) {
     start_time,
     end_time,
     privacy_level,
+    frequency,
+    recurrence_days,
   });
 
   if (error) return { error: error.message };
