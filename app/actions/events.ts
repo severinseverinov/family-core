@@ -40,7 +40,7 @@ export async function getPublicHolidays(countryCode: string = "TR") {
   }
 }
 
-// GÜNCELLENDİ: Özel Gün Tekrarı (recurrence_days) Desteği
+// GÜNCELLENDİ: Hata Düzeltildi
 export async function getDashboardItems(dateStr?: string) {
   const supabase = await createClient();
   const {
@@ -70,7 +70,7 @@ export async function getDashboardItems(dateStr?: string) {
     .lte("start_time", targetDateEnd)
     .order("start_time", { ascending: true });
 
-  // 2. TEKRARLAYAN ETKİNLİKLER (recurrence_days dahil)
+  // 2. TEKRARLAYAN ETKİNLİKLER
   const { data: recurringEvents } = await supabase
     .from("events")
     .select("*")
@@ -106,14 +106,11 @@ export async function getDashboardItems(dateStr?: string) {
       if (event.frequency === "daily") {
         shouldShow = true;
       } else if (event.frequency === "weekly") {
-        // Eğer özel günler seçilmişse (recurrence_days varsa)
         if (event.recurrence_days && event.recurrence_days.length > 0) {
-          // JS'de 0=Pazar, 1=Pzt... Veritabanına da böyle kaydedeceğiz.
           if (event.recurrence_days.includes(targetDate.getDay())) {
             shouldShow = true;
           }
         } else {
-          // Yoksa sadece başladığı gün tekrar etsin (Eski mantık)
           if (startDate.getDay() === targetDate.getDay()) shouldShow = true;
         }
       } else if (event.frequency === "monthly") {
@@ -176,17 +173,35 @@ export async function getDashboardItems(dateStr?: string) {
           .lte("completed_at", targetDateEnd)
           .maybeSingle();
 
+        // --- HATA DÜZELTME KISMI ---
+        // TypeScript'in kafası karışmaması için 'any' olarak alıp elle kontrol ediyoruz.
+        // Supabase bazen join verisini dizi, bazen obje olarak dönebilir.
+        const petData = routine.pets as any;
+        const petName = Array.isArray(petData)
+          ? petData[0]?.name
+          : petData?.name;
+        const petColor = Array.isArray(petData)
+          ? petData[0]?.color
+          : petData?.color;
+
+        const logData = log as any;
+        const completedBy =
+          logData?.profiles?.full_name ||
+          (Array.isArray(logData?.profiles)
+            ? logData.profiles[0]?.full_name
+            : null);
+        // ----------------------------
+
         dashboardItems.push({
           id: routine.id,
           routine_id: routine.id,
           type: "task",
           title: routine.title,
           points: routine.points,
-          // @ts-ignore
-          pet_name: routine.pets?.name,
-          pet_color: routine.pets?.color,
+          pet_name: petName,
+          pet_color: petColor,
           is_completed: !!log,
-          completed_by: log?.profiles?.full_name || null,
+          completed_by: completedBy,
         });
       }
     }
@@ -195,7 +210,6 @@ export async function getDashboardItems(dateStr?: string) {
   return { items: dashboardItems };
 }
 
-// GÜNCELLENDİ: recurrence_days parametresini işle
 export async function createEvent(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -218,7 +232,6 @@ export async function createEvent(formData: FormData) {
   const privacy_level = formData.get("privacy_level") as string;
   const frequency = (formData.get("frequency") as string) || "none";
 
-  // Seçilen günleri al (String "1,3,5" -> Array [1,3,5])
   const recurrenceDaysStr = formData.get("recurrence_days") as string;
   const recurrence_days = recurrenceDaysStr
     ? recurrenceDaysStr.split(",").map(Number)
