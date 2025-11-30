@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { randomBytes } from "crypto";
 
-// 1. Aile Oluşturma (Mevcut)
+// 1. Aile Oluşturma
 export async function createFamily(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -58,7 +58,9 @@ export async function getFamilyMembers() {
     .select("family_id")
     .eq("id", user.id)
     .single();
-  if (!profile?.family_id) return { members: [] };
+
+  // Profil veya aile yoksa boş dön
+  if (!profile || !profile.family_id) return { members: [] };
 
   const { data: members } = await supabase
     .from("profiles")
@@ -83,14 +85,17 @@ export async function getInvitations() {
     .eq("id", user.id)
     .single();
 
+  // HATA ÇÖZÜMÜ: Profilin varlığını kesin kontrol et
+  if (!profile) return { invitations: [] };
+
   // Sadece ebeveynler görebilir
-  if (!["owner", "admin"].includes(profile?.role || ""))
+  if (!["owner", "admin"].includes(profile.role || ""))
     return { invitations: [] };
 
   const { data: invitations } = await supabase
     .from("invitations")
     .select("*")
-    .eq("family_id", profile.family_id)
+    .eq("family_id", profile.family_id) // Artık profile.family_id güvenli
     .eq("status", "pending")
     .order("created_at", { ascending: false });
 
@@ -110,8 +115,11 @@ export async function createInvitation(formData: FormData) {
     .select("family_id, role")
     .eq("id", user.id)
     .single();
-  if (!["owner", "admin"].includes(profile?.role || ""))
+
+  if (!profile) return { error: "Profil bulunamadı" };
+  if (!["owner", "admin"].includes(profile.role || ""))
     return { error: "Yetkisiz işlem" };
+  if (!profile.family_id) return { error: "Bir aileye bağlı değilsiniz" };
 
   const email = formData.get("email") as string;
   const role = (formData.get("role") as string) || "member";
@@ -154,7 +162,9 @@ export async function removeMember(memberId: string) {
     .select("role, family_id")
     .eq("id", user?.id)
     .single();
-  if (!["owner", "admin"].includes(myProfile?.role || ""))
+
+  if (!myProfile) return { error: "Profiliniz bulunamadı" };
+  if (!["owner", "admin"].includes(myProfile.role || ""))
     return { error: "Yetkisiz" };
 
   const { data: targetProfile } = await supabase
@@ -163,9 +173,9 @@ export async function removeMember(memberId: string) {
     .eq("id", memberId)
     .single();
 
-  if (targetProfile?.role === "owner")
-    return { error: "Aile reisi silinemez." };
-  if (targetProfile?.family_id !== myProfile?.family_id)
+  if (!targetProfile) return { error: "Hedef kullanıcı bulunamadı" };
+  if (targetProfile.role === "owner") return { error: "Aile reisi silinemez." };
+  if (targetProfile.family_id !== myProfile.family_id)
     return { error: "Bu kullanıcı ailenizde değil." };
 
   // Kullanıcının family_id'sini sıfırla
