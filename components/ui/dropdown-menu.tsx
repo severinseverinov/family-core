@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Slot } from "@radix-ui/react-slot"; // Slot eklendi
 import { cn } from "@/lib/utils";
 
 interface DropdownMenuContextValue {
@@ -39,23 +40,26 @@ const DropdownMenu = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+// asChild desteği eklendi
 const DropdownMenuTrigger = React.forwardRef<
   HTMLButtonElement,
-  React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ className, children, ...props }, ref) => {
+  React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }
+>(({ className, children, asChild = false, ...props }, ref) => {
   const context = React.useContext(DropdownMenuContext);
   if (!context)
     throw new Error("DropdownMenuTrigger must be used within DropdownMenu");
 
+  const Comp = asChild ? Slot : "button";
+
   return (
-    <button
+    <Comp
       ref={ref}
       className={className}
       onClick={() => context.setOpen(!context.open)}
       {...props}
     >
       {children}
-    </button>
+    </Comp>
   );
 });
 DropdownMenuTrigger.displayName = "DropdownMenuTrigger";
@@ -73,7 +77,6 @@ const DropdownMenuContent = React.forwardRef<
   return (
     <div
       ref={ref}
-      // 'right-0' sınıfı zaten sağa hizalama (align="end") yapıyor.
       className={cn(
         "absolute right-0 top-full z-50 mt-2 min-w-[8rem] overflow-hidden rounded-md border border-gray-200 bg-white p-1 text-gray-950 shadow-md dark:border-gray-800 dark:bg-gray-950 dark:text-gray-50",
         className
@@ -84,12 +87,14 @@ const DropdownMenuContent = React.forwardRef<
 });
 DropdownMenuContent.displayName = "DropdownMenuContent";
 
+// asChild desteği eklendi
 const DropdownMenuItem = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => {
+  React.HTMLAttributes<HTMLDivElement> & { asChild?: boolean }
+>(({ className, asChild = false, ...props }, ref) => {
+  const Comp = asChild ? Slot : "div";
   return (
-    <div
+    <Comp
       ref={ref}
       className={cn(
         "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-gray-100 focus:bg-gray-100 dark:hover:bg-gray-800 dark:focus:bg-gray-800",
@@ -101,7 +106,6 @@ const DropdownMenuItem = React.forwardRef<
 });
 DropdownMenuItem.displayName = "DropdownMenuItem";
 
-// --- AYIRICI (SEPARATOR) EKLENDİ ---
 const DropdownMenuSeparator = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
