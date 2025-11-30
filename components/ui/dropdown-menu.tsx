@@ -73,6 +73,7 @@ const DropdownMenuContent = React.forwardRef<
   return (
     <div
       ref={ref}
+      // 'right-0' sınıfı zaten sağa hizalama (align="end") yapıyor.
       className={cn(
         "absolute right-0 top-full z-50 mt-2 min-w-[8rem] overflow-hidden rounded-md border border-gray-200 bg-white p-1 text-gray-950 shadow-md dark:border-gray-800 dark:bg-gray-950 dark:text-gray-50",
         className
@@ -100,7 +101,7 @@ const DropdownMenuItem = React.forwardRef<
 });
 DropdownMenuItem.displayName = "DropdownMenuItem";
 
-// --- YENİ EKLENEN KISIM: SEPARATOR ---
+// --- AYIRICI (SEPARATOR) EKLENDİ ---
 const DropdownMenuSeparator = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -118,5 +119,5 @@ export {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator, // <-- Export'a eklendi
+  DropdownMenuSeparator,
 };
