@@ -8,9 +8,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
+  DropdownMenuSeparator, // Artık bunu kullanabiliriz
 } from "@/components/ui/dropdown-menu";
-import { LogOut, Settings, User } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
@@ -28,7 +28,6 @@ export function UserMenu({ user }: UserMenuProps) {
     router.refresh();
   };
 
-  // Kullanıcı baş harflerini al (Avatar yoksa göstermek için)
   const userInitials =
     user.email?.split("@")[0].substring(0, 2).toUpperCase() || "U";
 
@@ -46,7 +45,8 @@ export function UserMenu({ user }: UserMenuProps) {
         </Avatar>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent className="w-56 mr-4 mt-2" align="end">
+      {/* DÜZELTME: align="end" kaldırıldı (CSS ile zaten sağa yaslı) */}
+      <DropdownMenuContent className="w-56 mr-4 mt-2">
         <div className="px-2 py-1.5">
           <p className="text-sm font-medium text-gray-900 dark:text-gray-50">
             {user.user_metadata?.full_name ||
@@ -60,7 +60,6 @@ export function UserMenu({ user }: UserMenuProps) {
 
         <DropdownMenuSeparator />
 
-        {/* AYARLAR MENÜSÜ */}
         <DropdownMenuItem asChild>
           <Link
             href="/dashboard/settings"
@@ -73,7 +72,6 @@ export function UserMenu({ user }: UserMenuProps) {
 
         <DropdownMenuSeparator />
 
-        {/* ÇIKIŞ YAP */}
         <DropdownMenuItem
           onClick={handleSignOut}
           className="cursor-pointer text-red-600 focus:text-red-600 dark:text-red-400 focus:bg-red-50 dark:focus:bg-red-900/10"
