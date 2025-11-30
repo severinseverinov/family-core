@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -7,8 +8,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, User } from "lucide-react";
+import { LogOut, Settings, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
@@ -26,6 +28,7 @@ export function UserMenu({ user }: UserMenuProps) {
     router.refresh();
   };
 
+  // Kullanıcı baş harflerini al (Avatar yoksa göstermek için)
   const userInitials =
     user.email?.split("@")[0].substring(0, 2).toUpperCase() || "U";
 
@@ -42,21 +45,41 @@ export function UserMenu({ user }: UserMenuProps) {
           <AvatarFallback>{userInitials}</AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56 mr-4 mt-2">
+
+      <DropdownMenuContent className="w-56 mr-4 mt-2" align="end">
         <div className="px-2 py-1.5">
           <p className="text-sm font-medium text-gray-900 dark:text-gray-50">
-            {user.email?.split("@")[0] || "User"}
+            {user.user_metadata?.full_name ||
+              user.email?.split("@")[0] ||
+              "Kullanıcı"}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
             {user.email}
           </p>
         </div>
+
+        <DropdownMenuSeparator />
+
+        {/* AYARLAR MENÜSÜ */}
+        <DropdownMenuItem asChild>
+          <Link
+            href="/dashboard/settings"
+            className="cursor-pointer w-full flex items-center"
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            Ayarlar & Aile
+          </Link>
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+
+        {/* ÇIKIŞ YAP */}
         <DropdownMenuItem
           onClick={handleSignOut}
-          className="cursor-pointer text-red-600 focus:text-red-600 dark:text-red-400"
+          className="cursor-pointer text-red-600 focus:text-red-600 dark:text-red-400 focus:bg-red-50 dark:focus:bg-red-900/10"
         >
           <LogOut className="mr-2 h-4 w-4" />
-          Sign Out
+          Çıkış Yap
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
