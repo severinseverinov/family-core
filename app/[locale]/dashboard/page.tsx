@@ -1,7 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { CreateFamilyForm } from "@/components/dashboard/CreateFamilyForm";
-import { signOut } from "@/app/actions/auth";
+
 import { headers } from "next/headers"; // <-- Header okumak için eklendi
 
 // Widgetlar
@@ -11,7 +11,8 @@ import { KitchenWidget } from "@/components/dashboard/widgets/KitchenWidget";
 import { GamificationWidget } from "@/components/dashboard/widgets/GamificationWidget";
 import { VaultWidget } from "@/components/dashboard/widgets/VaultWidget";
 
-// Actionlar
+// [locale] kısmını sildik, artık ana dizinden çekiyor
+import { signOut } from "@/app/actions/auth";
 import { getDashboardItems, getPublicHolidays } from "@/app/actions/events";
 import {
   getLeaderboard,
