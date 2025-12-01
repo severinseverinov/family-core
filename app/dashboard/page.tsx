@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { CreateFamilyForm } from "@/components/dashboard/CreateFamilyForm";
 import { signOut } from "@/app/actions/auth";
+import { headers } from "next/headers"; // <-- Header okumak için eklendi
 
 // Widgetlar
 import { CalendarWidget } from "@/components/dashboard/widgets/CalendarWidget";
@@ -10,7 +11,7 @@ import { KitchenWidget } from "@/components/dashboard/widgets/KitchenWidget";
 import { GamificationWidget } from "@/components/dashboard/widgets/GamificationWidget";
 import { VaultWidget } from "@/components/dashboard/widgets/VaultWidget";
 
-// Actionlar (Veri Çekme)
+// Actionlar
 import { getDashboardItems, getPublicHolidays } from "@/app/actions/events";
 import {
   getLeaderboard,
@@ -36,7 +37,6 @@ export default async function Dashboard() {
     .eq("id", user.id)
     .maybeSingle();
 
-  // Profil yoksa (Hata durumu)
   if (!profile) {
     return (
       <div className="flex h-screen items-center justify-center flex-col gap-4">
@@ -51,7 +51,6 @@ export default async function Dashboard() {
     );
   }
 
-  // Aileye üye değilse -> Aile Kurma Ekranı
   if (!profile.family_id) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -60,8 +59,13 @@ export default async function Dashboard() {
     );
   }
 
-  // 3. TÜM VERİLERİ SUNUCUDA ÇEK (Parallel Fetching)
-  // Promise.all ile hepsini aynı anda başlatıyoruz, sayfa çok daha hızlı yüklenir.
+  // 3. KONUM BİLGİSİNİ AL (DÜZELTME BURADA)
+  // Vercel üzerinden gelen ülke kodunu alıyoruz.
+  // Localhost'ta bu header boştur, o yüzden varsayılan 'TR' olur.
+  const headersList = await headers();
+  const countryCode = headersList.get("x-vercel-ip-country") || "TR";
+
+  // 4. TÜM VERİLERİ SUNUCUDA ÇEK (Parallel Fetching)
   const [
     holidays,
     dashboardData,
@@ -70,12 +74,12 @@ export default async function Dashboard() {
     historyData,
     rulesData,
   ] = await Promise.all([
-    getPublicHolidays("TR"), // Varsayılan TR, ileride user.country yapılabilir
-    getDashboardItems(), // Takvim etkinlikleri ve görevler
-    getLeaderboard(), // Puan durumu
-    getRewards(), // Ödül listesi
-    getPointHistory(), // Puan geçmişi
-    getPointRules(), // Puan cetveli
+    getPublicHolidays(countryCode), // <-- ARTIK DİNAMİK (DE, TR, US vb.)
+    getDashboardItems(),
+    getLeaderboard(),
+    getRewards(),
+    getPointHistory(),
+    getPointRules(),
   ]);
 
   const userName =
@@ -91,14 +95,14 @@ export default async function Dashboard() {
             Hoş geldin, {userName} 👋
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Ailenizin durumu bir bakışta burada.
+            Ailenizin durumu bir bakışta burada. (Konum: {countryCode})
           </p>
         </div>
       </div>
 
       {/* GRID YERLEŞİMİ */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* SOL SÜTUN (Geniş - 8 birim) */}
+        {/* SOL SÜTUN (Geniş) */}
         <div className="lg:col-span-8 space-y-6">
           {/* 1. Takvim & Görevler */}
           <div className="h-[520px]">
@@ -108,15 +112,15 @@ export default async function Dashboard() {
             />
           </div>
 
-          {/* 2. Mutfak & Stok (Rol bilgisini gönderiyoruz) */}
+          {/* 2. Mutfak & Stok */}
           <div className="h-[400px]">
             <KitchenWidget userRole={userRole} />
           </div>
         </div>
 
-        {/* SAĞ SÜTUN (Dar - 4 birim) */}
+        {/* SAĞ SÜTUN (Dar) */}
         <div className="lg:col-span-4 space-y-6">
-          {/* 3. Oyunlaştırma (Puanlar) */}
+          {/* 3. Oyunlaştırma */}
           <div className="h-[480px]">
             <GamificationWidget
               initialUsers={leaderboardData.users || []}
