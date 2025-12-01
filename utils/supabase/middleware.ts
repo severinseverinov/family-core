@@ -1,10 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// GÜNCELLEME: İkinci parametre olarak 'response' alıyor ve onu kullanıyoruz
+// GÜNCELLEME: İkinci parametre olarak 'response' alıyor
 export async function updateSession(
   request: NextRequest,
-  response: NextResponse // next-intl'den gelen yanıt (Redirect olabilir)
+  response: NextResponse // next-intl'den gelen yanıt
 ) {
   // Eğer response gelmediyse (örn: sadece auth kontrolü) varsayılan oluştur
   let supabaseResponse =
@@ -22,12 +22,10 @@ export async function updateSession(
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          // Çerezleri hem request'e hem de gelen response'a işliyoruz
+          // Çerezleri hem request'e hem response'a yazıyoruz
           cookiesToSet.forEach(({ name, value, options }) =>
             request.cookies.set(name, value)
           );
-
-          // Kritik Kısım: next-intl'den gelen response'a çerezleri ekle
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           );
@@ -40,9 +38,8 @@ export async function updateSession(
     data: { user },
   } = await supabase.auth.getUser();
 
+  // URL'den dil kodunu (örn: /en/dashboard) temizleyip saf yolu bulalım
   const pathname = request.nextUrl.pathname;
-
-  // Dil önekini (/en, /tr) temizleyip saf yolu bulalım
   const pathWithoutLocale = pathname.replace(/^\/(en|tr|de)/, "") || "/";
 
   const protectedRoutes = ["/dashboard", "/calendar", "/pets", "/kitchen"];
@@ -55,10 +52,6 @@ export async function updateSession(
   if (user && pathWithoutLocale === "/login") {
     const url = request.nextUrl.clone();
     // Mevcut dil neyse (örn: /en/login -> /en/dashboard) onu koru
-    // Ancak next-intl middleware zaten redirect verdiyse onu bozmamalıyız.
-    // Burada sadece "sayfa içeriği" login ise yönlendiriyoruz.
-
-    // Basitçe path'i değiştiriyoruz, locale başta duruyor
     url.pathname = pathname.replace("/login", "/dashboard");
     return NextResponse.redirect(url);
   }
@@ -70,6 +63,5 @@ export async function updateSession(
     return NextResponse.redirect(url);
   }
 
-  // next-intl'den gelen orijinal yanıtı (çerezleri işlenmiş halde) döndür
   return supabaseResponse;
 }
