@@ -40,7 +40,7 @@ export async function getPublicHolidays(countryCode: string = "TR") {
   }
 }
 
-// GÜNCELLENDİ: Hata Düzeltildi
+// GÜNCELLENDİ: Tekrarlı Etkinlik Mantığı Eklendi
 export async function getDashboardItems(dateStr?: string) {
   const supabase = await createClient();
   const {
@@ -86,7 +86,7 @@ export async function getDashboardItems(dateStr?: string) {
 
   const dashboardItems: DashboardItem[] = [];
 
-  // A) Tek Seferlikler
+  // A) Tek Seferlikleri Ekle
   oneTimeEvents?.forEach(e => {
     dashboardItems.push({
       id: e.id,
@@ -97,7 +97,7 @@ export async function getDashboardItems(dateStr?: string) {
     });
   });
 
-  // B) Tekrarlayanlar
+  // B) Tekrarlayanları Hesapla ve Ekle
   if (recurringEvents) {
     for (const event of recurringEvents) {
       const startDate = new Date(event.start_time);
@@ -107,10 +107,11 @@ export async function getDashboardItems(dateStr?: string) {
         shouldShow = true;
       } else if (event.frequency === "weekly") {
         if (event.recurrence_days && event.recurrence_days.length > 0) {
-          if (event.recurrence_days.includes(targetDate.getDay())) {
+          // Özel günler seçilmişse (Örn: Salı, Perşembe)
+          if (event.recurrence_days.includes(targetDate.getDay()))
             shouldShow = true;
-          }
         } else {
+          // Yoksa sadece başladığı gün tekrar etsin
           if (startDate.getDay() === targetDate.getDay()) shouldShow = true;
         }
       } else if (event.frequency === "monthly") {
@@ -135,7 +136,7 @@ export async function getDashboardItems(dateStr?: string) {
     }
   }
 
-  // C) Rutinler
+  // C) Rutinleri Ekle
   if (routines) {
     for (const routine of routines) {
       const startDate = new Date(routine.created_at);
@@ -173,9 +174,7 @@ export async function getDashboardItems(dateStr?: string) {
           .lte("completed_at", targetDateEnd)
           .maybeSingle();
 
-        // --- HATA DÜZELTME KISMI ---
-        // TypeScript'in kafası karışmaması için 'any' olarak alıp elle kontrol ediyoruz.
-        // Supabase bazen join verisini dizi, bazen obje olarak dönebilir.
+        // HATA DÜZELTME: Güvenli veri okuma
         const petData = routine.pets as any;
         const petName = Array.isArray(petData)
           ? petData[0]?.name
@@ -190,7 +189,6 @@ export async function getDashboardItems(dateStr?: string) {
           (Array.isArray(logData?.profiles)
             ? logData.profiles[0]?.full_name
             : null);
-        // ----------------------------
 
         dashboardItems.push({
           id: routine.id,
@@ -210,6 +208,7 @@ export async function getDashboardItems(dateStr?: string) {
   return { items: dashboardItems };
 }
 
+// GÜNCELLENDİ: Formdan gelen verileri kaydet
 export async function createEvent(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -232,6 +231,7 @@ export async function createEvent(formData: FormData) {
   const privacy_level = formData.get("privacy_level") as string;
   const frequency = (formData.get("frequency") as string) || "none";
 
+  // Seçilen günleri al (String "1,3,5" -> Array [1,3,5])
   const recurrenceDaysStr = formData.get("recurrence_days") as string;
   const recurrence_days = recurrenceDaysStr
     ? recurrenceDaysStr.split(",").map(Number)
