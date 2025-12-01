@@ -5,13 +5,26 @@
     "settings": "Settings & Family",
     "logout": "Sign Out"
   },
+  "Common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "add": "Add",
+    "delete": "Delete",
+    "edit": "Edit",
+    "update": "Update",
+    "error": "Error",
+    "success": "Success"
+  },
+  "Dashboard": {
+    "welcome": "Welcome back, {name} 👋",
+    "subtitle": "Your family status at a glance. (Location: {country})"
+  },
   "Calendar": {
     "title": "Calendar & Tasks",
     "today": "Today",
     "noEvents": "Nothing to do 😴",
     "addEvent": "New Event",
-    "save": "Save",
-    "cancel": "Cancel",
     "eventTitle": "Title",
     "start": "Start",
     "end": "End",
@@ -28,7 +41,62 @@
     "successAdd": "Added",
     "successTask": "Great! You earned +{points} Points 🎉"
   },
-  "Common": {
-    "loading": "Loading..."
+  "Pets": {
+    "title": "Pets",
+    "addPet": "Add New Pet",
+    "addRoutine": "Add Task",
+    "name": "Name",
+    "type": "Type",
+    "color": "Color",
+    "taskName": "Task Name",
+    "frequency": "Frequency",
+    "points": "Points",
+    "startDate": "Start Date",
+    "noPets": "No pets added yet."
+  },
+  "Kitchen": {
+    "title": "Kitchen & Stock",
+    "manualAdd": "Manual Add",
+    "scanReceipt": "Scan Receipt & Add Stock",
+    "scanning": "AI Analyzing...",
+    "productName": "Product Name",
+    "amount": "Amount",
+    "unit": "Unit",
+    "price": "Unit Price",
+    "category": "Category",
+    "budget": "Monthly Budget",
+    "spent": "Spent",
+    "limit": "Limit",
+    "empty": "Fridge empty. Scan receipt or add manually.",
+    "tabAll": "All"
+  },
+  "Gamification": {
+    "title": "Points & Rewards",
+    "tabLeaderboard": "Leaderboard",
+    "tabRules": "Rules",
+    "tabMarket": "Market",
+    "tabHistory": "History",
+    "givePoints": "Give Points",
+    "addReward": "Add Reward",
+    "addRule": "Add Standard",
+    "ruleName": "Rule Name",
+    "rewardName": "Reward Name",
+    "points": "Points",
+    "reason": "Reason",
+    "quickSelect": "Quick Select"
+  },
+  "Vault": {
+    "title": "Family Vault",
+    "addItem": "Add Item",
+    "name": "Title",
+    "value": "Secret / Password",
+    "file": "File",
+    "category": "Category",
+    "typeText": "Password / Note",
+    "typeFile": "Document / Image",
+    "btnEncrypt": "Encrypt & Save",
+    "btnUpload": "Upload & Save",
+    "viewFile": "View File ↗",
+    "empty": "Vault empty or unauthorized."
   }
 }

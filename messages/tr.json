@@ -2,33 +2,92 @@
   "Navbar": {
     "login": "Giriş Yap",
     "dashboard": "Panel",
-    "settings": "Ayarlar & Aile",
+    "settings": "Ayarlar",
     "logout": "Çıkış Yap"
+  },
+  "Common": {
+    "loading": "Yükleniyor...",
+    "save": "Kaydet",
+    "cancel": "Vazgeç",
+    "add": "Ekle",
+    "delete": "Sil",
+    "edit": "Düzenle",
+    "update": "Güncelle",
+    "error": "Hata",
+    "success": "Başarılı"
+  },
+  "Dashboard": {
+    "welcome": "Hoş geldin, {name} 👋",
+    "subtitle": "Ailenizin durumu bir bakışta burada. (Konum: {country})"
   },
   "Calendar": {
     "title": "Takvim & Görevler",
     "today": "Bugün",
     "noEvents": "Yapılacak bir şey yok 😴",
     "addEvent": "Yeni Etkinlik",
-    "save": "Kaydet",
-    "cancel": "Vazgeç",
     "eventTitle": "Başlık",
     "start": "Başlangıç",
     "end": "Bitiş",
     "privacy": "Görünürlük",
     "repeat": "Tekrar",
-    "recurrence_none": "Tek Seferlik",
-    "recurrence_daily": "Her Gün",
-    "recurrence_weekly": "Her Hafta",
-    "recurrence_monthly": "Her Ay",
-    "recurrence_yearly": "Her Yıl",
-    "family": "Tüm Aile",
-    "private": "Gizli",
-    "weekDays": "Hangi Günler?",
-    "successAdd": "Eklendi",
     "successTask": "Harika! +{points} Puan kazandın 🎉"
   },
-  "Common": {
-    "loading": "Yükleniyor..."
+  "Pets": {
+    "title": "Evcil Hayvanlar",
+    "addPet": "Yeni Dost Ekle",
+    "addRoutine": "Yeni Görev Tanımla",
+    "name": "İsim",
+    "type": "Tür",
+    "color": "Renk",
+    "taskName": "Görev Adı",
+    "frequency": "Sıklık",
+    "points": "Puan Değeri",
+    "startDate": "Başlangıç Tarihi",
+    "noPets": "Henüz eklenmiş dostumuz yok."
+  },
+  "Kitchen": {
+    "title": "Mutfak & Stok",
+    "manualAdd": "Manuel Ekle",
+    "scanReceipt": "Fiş Tara & Stok Ekle",
+    "scanning": "AI Analiz Ediyor...",
+    "productName": "Ürün Adı",
+    "amount": "Miktar",
+    "unit": "Birim",
+    "price": "Birim Fiyat (TL)",
+    "category": "Kategori",
+    "budget": "Aylık Mutfak Bütçesi",
+    "spent": "Harcama",
+    "limit": "Limit",
+    "empty": "Dolap boş. Fiş yükle veya manuel ekle.",
+    "tabAll": "Tümü"
+  },
+  "Gamification": {
+    "title": "Puan & Ödül",
+    "tabLeaderboard": "Lider",
+    "tabRules": "Cetvel",
+    "tabMarket": "Market",
+    "tabHistory": "Geçmiş",
+    "givePoints": "Puan Ver",
+    "addReward": "Ödül Ekle",
+    "addRule": "Standart Ekle",
+    "ruleName": "Kural Adı",
+    "rewardName": "Ödül Adı",
+    "points": "Puan",
+    "reason": "Sebep",
+    "quickSelect": "Standartlardan Seç"
+  },
+  "Vault": {
+    "title": "Aile Kasası",
+    "addItem": "Kasa Öğesi Ekle",
+    "name": "Başlık",
+    "value": "Gizli Bilgi / Şifre",
+    "file": "Dosya",
+    "category": "Kategori Seç",
+    "typeText": "Şifre / Not",
+    "typeFile": "Belge / Resim",
+    "btnEncrypt": "Şifrele ve Kaydet",
+    "btnUpload": "Yükle ve Sakla",
+    "viewFile": "Dosyayı Görüntüle ↗",
+    "empty": "Kasa boş veya yetkiniz yok."
   }
 }
