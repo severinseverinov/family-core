@@ -10,14 +10,14 @@ import { KitchenWidget } from "@/components/dashboard/widgets/KitchenWidget";
 import { GamificationWidget } from "@/components/dashboard/widgets/GamificationWidget";
 import { VaultWidget } from "@/components/dashboard/widgets/VaultWidget";
 
-// Actionlar
+// Actionlar (Veri Çekme)
 import { getDashboardItems, getPublicHolidays } from "@/app/actions/events";
 import {
   getLeaderboard,
   getRewards,
   getPointHistory,
   getPointRules,
-} from "@/app/actions/gamification"; // Yeni eklenenler
+} from "@/app/actions/gamification";
 
 export default async function Dashboard() {
   const supabase = await createClient();
@@ -29,17 +29,19 @@ export default async function Dashboard() {
   } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
 
-  // 2. Profil Kontrol
+  // 2. Profil ve Aile Kontrolü
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", user.id)
     .maybeSingle();
 
+  // Profil yoksa (Hata durumu)
   if (!profile) {
     return (
       <div className="flex h-screen items-center justify-center flex-col gap-4">
         <h1 className="text-xl font-bold text-red-600">Profil Bulunamadı</h1>
+        <p className="text-gray-500">Lütfen çıkış yapıp tekrar deneyin.</p>
         <form action={signOut}>
           <button className="bg-black text-white px-4 py-2 rounded">
             Çıkış Yap
@@ -49,16 +51,17 @@ export default async function Dashboard() {
     );
   }
 
+  // Aileye üye değilse -> Aile Kurma Ekranı
   if (!profile.family_id) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
+      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
         <CreateFamilyForm />
       </div>
     );
   }
 
-  // 3. TÜM VERİLERİ ÇEK (Parallel Fetching)
-  // Promise.all kullanarak hepsini aynı anda çekiyoruz, bu sayfa yüklemesini hızlandırır.
+  // 3. TÜM VERİLERİ SUNUCUDA ÇEK (Parallel Fetching)
+  // Promise.all ile hepsini aynı anda başlatıyoruz, sayfa çok daha hızlı yüklenir.
   const [
     holidays,
     dashboardData,
@@ -67,44 +70,54 @@ export default async function Dashboard() {
     historyData,
     rulesData,
   ] = await Promise.all([
-    getPublicHolidays("TR"),
-    getDashboardItems(),
-    getLeaderboard(),
-    getRewards(),
-    getPointHistory(),
-    getPointRules(),
+    getPublicHolidays("TR"), // Varsayılan TR, ileride user.country yapılabilir
+    getDashboardItems(), // Takvim etkinlikleri ve görevler
+    getLeaderboard(), // Puan durumu
+    getRewards(), // Ödül listesi
+    getPointHistory(), // Puan geçmişi
+    getPointRules(), // Puan cetveli
   ]);
 
   const userName =
     profile.full_name || user.email?.split("@")[0] || "Kullanıcı";
+  const userRole = profile.role || "member";
 
   return (
-    <div className="p-4 md:p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6 max-w-[1600px] mx-auto">
+      {/* BAŞLIK */}
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-          Hoş geldin, {userName} 👋
-        </h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Hoş geldin, {userName} 👋
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Ailenizin durumu bir bakışta burada.
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* SOL SÜTUN */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="h-[500px]">
+      {/* GRID YERLEŞİMİ */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* SOL SÜTUN (Geniş - 8 birim) */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* 1. Takvim & Görevler */}
+          <div className="h-[520px]">
             <CalendarWidget
               initialItems={dashboardData.items || []}
               initialHolidays={holidays}
             />
           </div>
-          <div className="h-128">
-            <KitchenWidget />
+
+          {/* 2. Mutfak & Stok (Rol bilgisini gönderiyoruz) */}
+          <div className="h-[400px]">
+            <KitchenWidget userRole={userRole} />
           </div>
         </div>
 
-        {/* SAĞ SÜTUN */}
-        <div className="space-y-6">
-          <div className="h-[400px]">
-            {" "}
-            {/* Biraz uzattık ki sekmeler rahat sığsın */}
+        {/* SAĞ SÜTUN (Dar - 4 birim) */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* 3. Oyunlaştırma (Puanlar) */}
+          <div className="h-[480px]">
             <GamificationWidget
               initialUsers={leaderboardData.users || []}
               initialRewards={rewardsData.rewards || []}
@@ -112,10 +125,14 @@ export default async function Dashboard() {
               initialRules={rulesData.rules || []}
             />
           </div>
-          <div className="h-80">
+
+          {/* 4. Evcil Hayvanlar */}
+          <div className="h-[320px]">
             <PetWidget />
           </div>
-          <div className="h-64">
+
+          {/* 5. Aile Kasası */}
+          <div className="h-[300px]">
             <VaultWidget />
           </div>
         </div>

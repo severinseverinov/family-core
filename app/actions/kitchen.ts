@@ -4,35 +4,83 @@ import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// API Anahtarı Kontrolü
 const apiKey = process.env.GEMINI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
-// 1. Envanteri Getir
-export async function getInventory() {
+// 1. Envanteri ve Bütçe Durumunu Getir
+export async function getInventoryAndBudget() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { items: [] };
+  if (!user) return { items: [], budget: 0, spent: 0 };
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("family_id")
     .eq("id", user.id)
     .single();
-  if (!profile?.family_id) return { items: [] };
+  if (!profile?.family_id) return { items: [], budget: 0, spent: 0 };
 
-  const { data } = await supabase
+  // Envanter
+  const { data: items } = await supabase
     .from("inventory")
     .select("*")
     .eq("family_id", profile.family_id)
-    .order("created_at", { ascending: false }); // En son eklenen en üstte
+    .order("created_at", { ascending: false });
 
-  return { items: data || [] };
+  // Aile Bütçesi
+  const { data: family } = await supabase
+    .from("families")
+    .select("kitchen_budget")
+    .eq("id", profile.family_id)
+    .single();
+
+  // Bu Ayki Harcamalar
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const { data: expenses } = await supabase
+    .from("expenses")
+    .select("amount")
+    .eq("family_id", profile.family_id)
+    .gte("created_at", startOfMonth.toISOString());
+
+  const totalSpent = expenses?.reduce((sum, item) => sum + item.amount, 0) || 0;
+
+  return {
+    items: items || [],
+    budget: family?.kitchen_budget || 0,
+    spent: totalSpent,
+  };
 }
 
-// 2. Manuel Ürün Ekle
+// 2. Bütçe Limiti Ayarla
+export async function updateBudget(amount: number) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Yetkisiz" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("family_id, role")
+    .eq("id", user.id)
+    .single();
+  if (!["owner", "admin"].includes(profile?.role || ""))
+    return { error: "Sadece ebeveynler bütçe ayarlayabilir." };
+
+  await supabase
+    .from("families")
+    .update({ kitchen_budget: amount })
+    .eq("id", profile.family_id);
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+// 3. Manuel Ürün Ekle (Fiyatlı)
 export async function addInventoryItem(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -42,30 +90,103 @@ export async function addInventoryItem(formData: FormData) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("family_id")
+    .select("family_id, role")
     .eq("id", user.id)
     .single();
-  if (!profile?.family_id) return { error: "Aile bulunamadı" };
+
+  if (!["owner", "admin"].includes(profile.role || "")) {
+    return { error: "Yetkisiz işlem." };
+  }
 
   const name = formData.get("name") as string;
   const quantity = parseFloat(formData.get("quantity") as string);
   const unit = formData.get("unit") as string;
   const category = formData.get("category") as string;
+  const price = parseFloat(formData.get("price") as string) || 0; // Yeni Alan
 
+  // Ürünü Ekle
   const { error } = await supabase.from("inventory").insert({
     family_id: profile.family_id,
     product_name: name,
     quantity,
     unit,
     category,
+    last_price: price, // Fiyatı kaydet
   });
+
+  if (error) return { error: error.message };
+
+  // Eğer fiyat varsa Harcamalara da ekle (Manuel alışveriş sayılır)
+  if (price > 0) {
+    await supabase.from("expenses").insert({
+      family_id: profile.family_id,
+      amount: price * quantity, // Toplam tutar
+      shop_name: "Manuel Ekleme",
+      items_json: [{ name, quantity, price }],
+    });
+  }
+
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+// 4. Miktar Güncelleme (+/-)
+export async function updateItemQuantity(itemId: string, change: number) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum açın" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, family_id")
+    .eq("id", user.id)
+    .single();
+
+  const { data: item } = await supabase
+    .from("inventory")
+    .select("quantity, last_price, product_name")
+    .eq("id", itemId)
+    .single();
+
+  if (!item) return { error: "Ürün bulunamadı" };
+
+  const newQuantity = item.quantity + change;
+
+  // KURAL: Artış varsa (+) ve ebeveyn değilse engelle
+  if (change > 0) {
+    if (!["owner", "admin"].includes(profile?.role || "")) {
+      return { error: "Stok artırmayı sadece ebeveynler yapabilir." };
+    }
+
+    // ARTIŞ VARSA HARCAMAYA EKLE (Son fiyattan)
+    if (item.last_price > 0) {
+      const cost = item.last_price * change;
+      await supabase.from("expenses").insert({
+        family_id: profile.family_id,
+        amount: cost,
+        shop_name: "Stok Güncelleme",
+        items_json: [
+          { name: item.product_name, quantity: change, price: item.last_price },
+        ],
+      });
+    }
+  }
+
+  if (newQuantity < 0) return { error: "Stok yetersiz." };
+
+  const { error } = await supabase
+    .from("inventory")
+    .update({ quantity: newQuantity })
+    .eq("id", itemId);
 
   if (error) return { error: error.message };
   revalidatePath("/dashboard");
   return { success: true };
 }
 
-// 3. Ürün Sil
+// 5. Ürün Sil
 export async function deleteInventoryItem(id: string) {
   const supabase = await createClient();
   await supabase.from("inventory").delete().eq("id", id);
@@ -73,11 +194,9 @@ export async function deleteInventoryItem(id: string) {
   return { success: true };
 }
 
-// 4. Fiş Okuma (Gemini AI)
+// 6. Fiş Okuma (Fiyat Analizli)
 export async function scanReceipt(formData: FormData) {
   const supabase = await createClient();
-
-  // Kullanıcı ve Aile Kontrolü
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -90,7 +209,6 @@ export async function scanReceipt(formData: FormData) {
     .single();
   if (!profile?.family_id) return { error: "Aile yok" };
 
-  // Dosya Yükleme
   const file = formData.get("receipt") as File;
   if (!file) return { error: "Dosya yok" };
 
@@ -98,32 +216,34 @@ export async function scanReceipt(formData: FormData) {
   const fileName = `${user.id}-${Date.now()}.${fileExt}`;
   const filePath = `receipts/${fileName}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from("images")
-    .upload(filePath, file);
-  if (uploadError) console.error("Upload hatası:", uploadError);
-
+  await supabase.storage.from("images").upload(filePath, file);
   const {
     data: { publicUrl },
   } = supabase.storage.from("images").getPublicUrl(filePath);
 
-  // AI Analizi
   try {
-    if (!genAI) throw new Error("API Anahtarı eksik (GEMINI_API_KEY)");
+    if (!genAI) throw new Error("API Anahtarı eksik");
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const base64Data = buffer.toString("base64");
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash-latest",
+      model: "gemini-2.5-flash",
     });
 
+    // Prompt'u güncelledik: Birim Fiyatı (unit_price) da istiyoruz
     const prompt = `
-      Market fişini analiz et ve ürünleri JSON olarak ver.
-      Format: { "shop_name": string, "total_amount": number, "items": [{ "name": string, "quantity": number, "unit": string, "category": string }] }
-      Ürün isimlerini sadeleştir. Birim yoksa "adet" yaz. Kategori örnekleri: Gıda, Temizlik, Sebze.
-      Sadece JSON ver.
+      Market fişini analiz et. Ürünlerin BİRİM FİYATINI (unit_price) da çıkar.
+      JSON Formatı: 
+      { 
+        "shop_name": string, 
+        "total_amount": number, 
+        "items": [
+          { "name": string, "quantity": number, "unit": string, "category": string, "unit_price": number }
+        ] 
+      }
+      Birim fiyat yoksa toplam fiyattan hesapla. Sadece JSON ver.
     `;
 
     const result = await model.generateContent([
@@ -139,7 +259,7 @@ export async function scanReceipt(formData: FormData) {
       .trim();
     const data = JSON.parse(text);
 
-    // Veritabanına Yazma
+    // Harcama Kaydı
     await supabase.from("expenses").insert({
       family_id: profile.family_id,
       amount: data.total_amount,
@@ -148,8 +268,8 @@ export async function scanReceipt(formData: FormData) {
       items_json: data.items,
     });
 
+    // Stok Güncelleme (Fiyatla Birlikte)
     for (const item of data.items) {
-      // Aynı ürün varsa miktarını artır, yoksa ekle
       const { data: existing } = await supabase
         .from("inventory")
         .select("id, quantity")
@@ -160,7 +280,10 @@ export async function scanReceipt(formData: FormData) {
       if (existing) {
         await supabase
           .from("inventory")
-          .update({ quantity: existing.quantity + item.quantity })
+          .update({
+            quantity: existing.quantity + item.quantity,
+            last_price: item.unit_price, // Son fiyatı güncelle
+          })
           .eq("id", existing.id);
       } else {
         await supabase.from("inventory").insert({
@@ -169,6 +292,7 @@ export async function scanReceipt(formData: FormData) {
           quantity: item.quantity,
           unit: item.unit || "adet",
           category: item.category || "Genel",
+          last_price: item.unit_price, // Fiyatı kaydet
         });
       }
     }
