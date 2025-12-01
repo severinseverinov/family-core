@@ -21,9 +21,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
-import { tr } from "date-fns/locale";
+import { tr, enUS, de } from "date-fns/locale";
+import { useTranslations, useLocale } from "next-intl"; // <-- EKLENDİ
 
-// Props Tanımı
 interface GamificationWidgetProps {
   initialUsers: any[];
   initialRewards: any[];
@@ -37,29 +37,31 @@ export function GamificationWidget({
   initialHistory,
   initialRules,
 }: GamificationWidgetProps) {
+  const t = useTranslations("Gamification"); // <-- Çeviri Kancası
+  const tCommon = useTranslations("Common");
+  const locale = useLocale();
+
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<
     "leaderboard" | "market" | "history" | "rules"
   >("leaderboard");
 
-  // Veriler (Props'tan gelenleri kullanıyoruz)
-  // Props değiştiğinde (router.refresh ile) UI otomatik güncellenir
   const users = initialUsers;
   const rewards = initialRewards;
   const history = initialHistory;
   const rules = initialRules;
 
-  // Modallar
   const [isRewardOpen, setIsRewardOpen] = useState(false);
   const [isRuleOpen, setIsRuleOpen] = useState(false);
   const [isGivePointsOpen, setIsGivePointsOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
-  // Form State
   const [giveReason, setGiveReason] = useState("");
   const [giveAmount, setGiveAmount] = useState("");
 
-  // Puan Verme Butonu
+  // Tarih formatı için locale
+  const dateLocale = locale === "tr" ? tr : locale === "de" ? de : enUS;
+
   const handleGivePointsClick = (user: any) => {
     setSelectedUser(user);
     setGiveReason("");
@@ -67,7 +69,6 @@ export function GamificationWidget({
     setIsGivePointsOpen(true);
   };
 
-  // Kural Seçimi
   const handleRuleSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const ruleId = e.target.value;
     const rule = rules.find(r => r.id === ruleId);
@@ -77,22 +78,24 @@ export function GamificationWidget({
     }
   };
 
+  // Sekme Başlıkları (Çevirili)
+  const tabItems = [
+    { id: "leaderboard", icon: Trophy, label: t("tabLeaderboard") },
+    { id: "rules", icon: ListChecks, label: t("tabRules") },
+    { id: "market", icon: Gift, label: t("tabMarket") },
+    { id: "history", icon: History, label: t("tabHistory") },
+  ];
+
   return (
     <Card className="h-full flex flex-col bg-yellow-50/30 border-yellow-100 dark:bg-yellow-900/10 dark:border-yellow-900/30 shadow-sm">
       <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-sm font-medium flex gap-2 text-yellow-700 dark:text-yellow-500">
           <Trophy className="h-4 w-4" />
-          Puan & Ödül
+          {t("title")}
         </CardTitle>
 
-        {/* Sekmeler */}
         <div className="flex gap-1 bg-white/50 p-1 rounded-lg dark:bg-gray-800/50 overflow-x-auto no-scrollbar">
-          {[
-            { id: "leaderboard", icon: Trophy, label: "Lider" },
-            { id: "rules", icon: ListChecks, label: "Cetvel" },
-            { id: "market", icon: Gift, label: "Market" },
-            { id: "history", icon: History, label: "Geçmiş" },
-          ].map((tab: any) => (
+          {tabItems.map((tab: any) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -137,7 +140,7 @@ export function GamificationWidget({
                       {user.full_name}
                     </p>
                     <p className="text-[10px] text-gray-500 capitalize">
-                      {user.role === "owner" ? "Ebeveyn" : user.role}
+                      {user.role === "owner" ? "Admin" : user.role}
                     </p>
                   </div>
                 </div>
@@ -160,7 +163,7 @@ export function GamificationWidget({
           </div>
         )}
 
-        {/* 2. PUAN CETVELİ (STANDARTLAR) */}
+        {/* 2. STANDARTLAR (RULES) */}
         {activeTab === "rules" && (
           <div className="space-y-3">
             <Button
@@ -169,14 +172,12 @@ export function GamificationWidget({
               className="w-full border-dashed h-8 text-xs"
               onClick={() => setIsRuleOpen(true)}
             >
-              <Plus className="h-3 w-3 mr-2" /> Standart Ekle
+              <Plus className="h-3 w-3 mr-2" /> {t("addRule")}
             </Button>
 
             <div className="space-y-2">
               {rules.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-2">
-                  Kural yok.
-                </p>
+                <p className="text-xs text-gray-400 text-center py-2">--</p>
               ) : (
                 rules.map(rule => (
                   <div
@@ -190,7 +191,7 @@ export function GamificationWidget({
                       </span>
                       <button
                         onClick={async () => {
-                          if (confirm("Silinsin mi?")) {
+                          if (confirm(tCommon("delete") + "?")) {
                             await deletePointRule(rule.id);
                             router.refresh();
                           }
@@ -207,7 +208,7 @@ export function GamificationWidget({
           </div>
         )}
 
-        {/* 3. ÖDÜL MARKETİ */}
+        {/* 3. MARKET */}
         {activeTab === "market" && (
           <div className="space-y-3">
             <Button
@@ -216,7 +217,7 @@ export function GamificationWidget({
               className="w-full border-dashed h-8 text-xs"
               onClick={() => setIsRewardOpen(true)}
             >
-              <Plus className="h-3 w-3 mr-2" /> Ödül Ekle
+              <Plus className="h-3 w-3 mr-2" /> {t("addReward")}
             </Button>
 
             <div className="grid grid-cols-2 gap-2">
@@ -225,18 +226,15 @@ export function GamificationWidget({
                   key={reward.id}
                   className="border rounded-lg p-3 flex flex-col items-center text-center gap-1 hover:border-yellow-500 cursor-pointer bg-white dark:bg-gray-900 transition-all active:scale-95 hover:shadow-sm"
                   onClick={async () => {
-                    if (
-                      !confirm(`${reward.title} ödülünü almak istiyor musun?`)
-                    )
-                      return;
+                    if (!confirm("?")) return;
                     const res = await redeemReward(
                       reward.id,
                       reward.cost,
                       reward.title
                     );
-                    if (res?.error) toast.error(res.error);
+                    if (res?.error) toast.error(tCommon("error"));
                     else {
-                      toast.success("Ödül alındı!");
+                      toast.success(tCommon("success"));
                       router.refresh();
                     }
                   }}
@@ -257,53 +255,47 @@ export function GamificationWidget({
         {/* 4. GEÇMİŞ */}
         {activeTab === "history" && (
           <div className="space-y-2">
-            {history.length === 0 ? (
-              <p className="text-xs text-center text-gray-400 py-4">
-                Henüz hareket yok.
-              </p>
-            ) : (
-              history.map(item => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between p-2 border-b last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded"
-                >
-                  <div>
-                    <p className="text-xs font-medium">{item.description}</p>
-                    <p className="text-[10px] text-gray-400">
-                      {item.profiles?.full_name} •{" "}
-                      {format(new Date(item.created_at), "d MMM HH:mm", {
-                        locale: tr,
-                      })}
-                    </p>
-                  </div>
-                  <span
-                    className={`text-xs font-bold ${
-                      item.amount > 0 ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
-                    {item.amount > 0 ? "+" : ""}
-                    {item.amount}
-                  </span>
+            {history.map(item => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between p-2 border-b last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded"
+              >
+                <div>
+                  <p className="text-xs font-medium">{item.description}</p>
+                  <p className="text-[10px] text-gray-400">
+                    {item.profiles?.full_name} •{" "}
+                    {format(new Date(item.created_at), "d MMM HH:mm", {
+                      locale: dateLocale,
+                    })}
+                  </p>
                 </div>
-              ))
-            )}
+                <span
+                  className={`text-xs font-bold ${
+                    item.amount > 0 ? "text-green-600" : "text-red-600"
+                  }`}
+                >
+                  {item.amount > 0 ? "+" : ""}
+                  {item.amount}
+                </span>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* --- MODALLAR --- */}
-
-        {/* Puan Verme Modalı */}
+        {/* MODALLAR */}
         <Dialog open={isGivePointsOpen} onOpenChange={setIsGivePointsOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Puan Ver: {selectedUser?.full_name}</DialogTitle>
+              <DialogTitle>
+                {t("givePoints")}: {selectedUser?.full_name}
+              </DialogTitle>
             </DialogHeader>
             <form
               action={async fd => {
                 const res = await givePoints(fd);
-                if (res?.error) toast.error(res.error);
+                if (res?.error) toast.error(tCommon("error"));
                 else {
-                  toast.success("Puan gönderildi 🚀");
+                  toast.success(tCommon("success"));
                   setIsGivePointsOpen(false);
                   router.refresh();
                 }
@@ -315,11 +307,9 @@ export function GamificationWidget({
                 name="targetUserId"
                 value={selectedUser?.id || ""}
               />
-
-              {/* Standartlardan Seçim */}
               <div className="space-y-1">
                 <label className="text-xs text-gray-500">
-                  Standartlardan Seç
+                  {t("quickSelect")}
                 </label>
                 <select
                   className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
@@ -327,7 +317,7 @@ export function GamificationWidget({
                   defaultValue=""
                 >
                   <option value="" disabled>
-                    Seçiniz...
+                    ...
                   </option>
                   {rules.map(r => (
                     <option key={r.id} value={r.id}>
@@ -336,101 +326,81 @@ export function GamificationWidget({
                   ))}
                 </select>
               </div>
-
               <div className="space-y-2">
-                <label className="text-sm font-medium">Miktar</label>
+                <label className="text-sm font-medium">{tCommon("add")}</label>
                 <Input
                   name="amount"
                   type="number"
-                  placeholder="Örn: 50"
+                  placeholder="50"
                   required
                   value={giveAmount}
                   onChange={e => setGiveAmount(e.target.value)}
                 />
               </div>
-
               <div className="space-y-2">
-                <label className="text-sm font-medium">Sebep</label>
+                <label className="text-sm font-medium">{t("reason")}</label>
                 <Input
                   name="reason"
-                  placeholder="Örn: Odayı topladı"
                   required
                   value={giveReason}
                   onChange={e => setGiveReason(e.target.value)}
                 />
               </div>
-
               <Button
                 type="submit"
                 className="w-full bg-green-600 hover:bg-green-700"
               >
-                Onayla
+                {tCommon("save")}
               </Button>
             </form>
           </DialogContent>
         </Dialog>
 
-        {/* Kural Ekleme Modalı */}
         <Dialog open={isRuleOpen} onOpenChange={setIsRuleOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Yeni Standart Ekle</DialogTitle>
+              <DialogTitle>{t("addRule")}</DialogTitle>
             </DialogHeader>
             <form
               action={async fd => {
                 const res = await createPointRule(fd);
-                if (res?.error) toast.error(res.error);
+                if (res?.error) toast.error(tCommon("error"));
                 else {
-                  toast.success("Kural eklendi");
+                  toast.success(tCommon("success"));
                   setIsRuleOpen(false);
                   router.refresh();
                 }
               }}
               className="space-y-3"
             >
-              <Input
-                name="title"
-                placeholder="Kural Adı (Örn: Çöpü Atmak)"
-                required
-              />
-              <Input
-                name="points"
-                type="number"
-                placeholder="Puan (Örn: 20)"
-                required
-              />
+              <Input name="title" placeholder={t("ruleName")} required />
+              <Input name="points" type="number" placeholder="20" required />
               <Button type="submit" className="w-full">
-                Kaydet
+                {tCommon("save")}
               </Button>
             </form>
           </DialogContent>
         </Dialog>
 
-        {/* Ödül Ekleme Modalı */}
         <Dialog open={isRewardOpen} onOpenChange={setIsRewardOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Yeni Ödül Ekle</DialogTitle>
+              <DialogTitle>{t("addReward")}</DialogTitle>
             </DialogHeader>
             <form
               action={async fd => {
                 const res = await createReward(fd);
-                if (res?.error) toast.error(res.error);
+                if (res?.error) toast.error(tCommon("error"));
                 else {
-                  toast.success("Ödül eklendi");
+                  toast.success(tCommon("success"));
                   setIsRewardOpen(false);
                   router.refresh();
                 }
               }}
               className="space-y-3"
             >
-              <Input name="title" placeholder="Ödül Adı" required />
-              <Input
-                name="cost"
-                type="number"
-                placeholder="Puan Değeri"
-                required
-              />
+              <Input name="title" placeholder={t("rewardName")} required />
+              <Input name="cost" type="number" placeholder="100" required />
               <div className="grid grid-cols-5 gap-2">
                 {[
                   "🎮",
@@ -460,7 +430,7 @@ export function GamificationWidget({
                 ))}
               </div>
               <Button type="submit" className="w-full">
-                Kaydet
+                {tCommon("save")}
               </Button>
             </form>
           </DialogContent>

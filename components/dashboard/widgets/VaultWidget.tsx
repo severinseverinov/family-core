@@ -31,6 +31,7 @@ import {
   deleteVaultItem,
   getFileUrl,
 } from "@/app/actions/vault";
+import { useTranslations } from "next-intl"; // <-- EKLENDİ
 
 const ICONS = {
   wifi: <Wifi className="h-4 w-4" />,
@@ -40,11 +41,12 @@ const ICONS = {
 };
 
 export function VaultWidget() {
+  const t = useTranslations("Vault"); // <-- Çeviri
+  const tCommon = useTranslations("Common");
+
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
-
-  // State
   const [revealedId, setRevealedId] = useState<string | null>(null);
   const [secretValue, setSecretValue] = useState("");
   const [addType, setAddType] = useState<"text" | "file">("text");
@@ -59,7 +61,6 @@ export function VaultWidget() {
     loadItems();
   }, []);
 
-  // Metin Şifreyi Göster
   const handleReveal = async (id: string) => {
     if (revealedId === id) {
       setRevealedId(null);
@@ -71,24 +72,23 @@ export function VaultWidget() {
       setSecretValue(res.secret);
       setRevealedId(id);
     } else {
-      toast.error("Hata");
+      toast.error(tCommon("error"));
     }
   };
 
-  // Dosyayı Aç (Signed URL Alır)
   const handleOpenFile = async (path: string) => {
     const res = await getFileUrl(path);
     if (res.url) {
       window.open(res.url, "_blank");
     } else {
-      toast.error("Dosya açılamadı");
+      toast.error(tCommon("error"));
     }
   };
 
   const handleDelete = async (item: any) => {
-    if (!confirm("Silmek istediğine emin misin?")) return;
-    await deleteVaultItem(item.id, item.file_path); // Varsa dosya yolunu da gönder
-    toast.success("Silindi");
+    if (!confirm(tCommon("delete") + "?")) return;
+    await deleteVaultItem(item.id, item.file_path);
+    toast.success(tCommon("success"));
     loadItems();
   };
 
@@ -97,7 +97,7 @@ export function VaultWidget() {
       <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-sm font-medium flex gap-2 text-red-700 dark:text-red-400">
           <Lock className="h-4 w-4" />
-          Aile Kasası
+          {t("title")}
         </CardTitle>
         <Button
           size="icon"
@@ -111,9 +111,11 @@ export function VaultWidget() {
 
       <CardContent className="flex-1 overflow-auto p-4">
         {loading ? (
-          <div className="text-xs text-center text-gray-400">Yükleniyor...</div>
+          <div className="text-xs text-center text-gray-400">
+            {tCommon("loading")}
+          </div>
         ) : items.length === 0 ? (
-          <div className="text-xs text-center text-gray-400">Kasa boş.</div>
+          <div className="text-xs text-center text-gray-400">{t("empty")}</div>
         ) : (
           <div className="space-y-2">
             {items.map(item => (
@@ -123,7 +125,6 @@ export function VaultWidget() {
               >
                 <div className="flex items-center gap-3 overflow-hidden">
                   <div className="p-2 bg-gray-100 rounded-full dark:bg-gray-800">
-                    {/* İkon Seçimi */}
                     {item.type === "file" ? (
                       item.mime_type?.includes("image") ? (
                         <ImageIcon className="h-4 w-4 text-blue-500" />
@@ -134,17 +135,14 @@ export function VaultWidget() {
                       ICONS[item.category as keyof typeof ICONS] || ICONS.other
                     )}
                   </div>
-
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{item.title}</p>
-
-                    {/* İçerik Gösterimi */}
                     {item.type === "file" ? (
                       <span
                         className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded cursor-pointer hover:underline"
                         onClick={() => handleOpenFile(item.file_path)}
                       >
-                        Dosyayı Görüntüle ↗
+                        {t("viewFile")}
                       </span>
                     ) : (
                       <p className="text-xs text-gray-500 font-mono truncate h-4">
@@ -159,7 +157,6 @@ export function VaultWidget() {
                     )}
                   </div>
                 </div>
-
                 <div className="flex gap-1">
                   {item.type === "text" && (
                     <Button
@@ -199,14 +196,11 @@ export function VaultWidget() {
           </div>
         )}
 
-        {/* EKLEME MODALI */}
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Kasa Öğesi Ekle</DialogTitle>
+              <DialogTitle>{t("addItem")}</DialogTitle>
             </DialogHeader>
-
-            {/* TÜR SEÇİMİ */}
             <div className="flex gap-2 mb-4 bg-gray-100 p-1 rounded-lg">
               <button
                 onClick={() => setAddType("text")}
@@ -214,7 +208,7 @@ export function VaultWidget() {
                   addType === "text" ? "bg-white shadow" : "text-gray-500"
                 }`}
               >
-                Şifre / Not
+                {t("typeText")}
               </button>
               <button
                 onClick={() => setAddType("file")}
@@ -222,33 +216,27 @@ export function VaultWidget() {
                   addType === "file" ? "bg-white shadow" : "text-gray-500"
                 }`}
               >
-                Belge / Resim
+                {t("typeFile")}
               </button>
             </div>
-
             <form
               action={async fd => {
-                fd.append("type", addType); // Tipi ekle
+                fd.append("type", addType);
                 const res = await addVaultItem(fd);
-                if (res?.error) toast.error(res.error);
+                if (res?.error) toast.error(tCommon("error"));
                 else {
-                  toast.success("Eklendi 🔒");
+                  toast.success(tCommon("success"));
                   setIsOpen(false);
                   loadItems();
                 }
               }}
               className="space-y-4"
             >
-              <Input
-                name="title"
-                placeholder="Başlık (Örn: Kimlik Fotokopisi)"
-                required
-              />
-
+              <Input name="title" placeholder={t("name")} required />
               {addType === "text" ? (
                 <Input
                   name="value"
-                  placeholder="Gizli Bilgi / Şifre"
+                  placeholder={t("value")}
                   required
                   type="password"
                 />
@@ -260,25 +248,23 @@ export function VaultWidget() {
                   className="cursor-pointer"
                 />
               )}
-
               <div className="flex gap-2">
                 <select
                   name="category"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
-                  <option value="other">Kategori Seç (Opsiyonel)</option>
+                  <option value="other">{t("category")}</option>
                   <option value="document">Belge</option>
                   <option value="wifi">Wi-Fi</option>
                   <option value="password">Şifre</option>
                   <option value="finance">Finans</option>
                 </select>
               </div>
-
               <Button
                 type="submit"
                 className="w-full bg-red-600 hover:bg-red-700"
               >
-                {addType === "text" ? "Şifrele ve Kaydet" : "Yükle ve Sakla"}
+                {addType === "text" ? t("btnEncrypt") : t("btnUpload")}
               </Button>
             </form>
           </DialogContent>
