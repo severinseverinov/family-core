@@ -1,6 +1,6 @@
 "use client";
 
-import { createFamily } from "@/app/[locale]/actions/family";
+import { createFamily } from "@/app/actions/family";
 import { useActionState } from "react";
 
 import {

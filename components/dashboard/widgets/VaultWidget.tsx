@@ -30,7 +30,7 @@ import {
   revealSecret,
   deleteVaultItem,
   getFileUrl,
-} from "@/app/[locale]/actions/vault";
+} from "@/app/actions/vault";
 
 const ICONS = {
   wifi: <Wifi className="h-4 w-4" />,

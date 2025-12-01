@@ -12,7 +12,7 @@ import {
   givePoints,
   createPointRule,
   deletePointRule,
-} from "@/app/[locale]/actions/gamification";
+} from "@/app/actions/gamification";
 import {
   Dialog,
   DialogContent,

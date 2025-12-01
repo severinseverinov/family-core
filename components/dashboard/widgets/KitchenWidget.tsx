@@ -35,7 +35,7 @@ import {
   updateItemQuantity,
   scanReceipt,
   updateBudget,
-} from "@/app/[locale]/actions/kitchen";
+} from "@/app/actions/kitchen";
 
 const CATEGORY_ICONS: Record<string, any> = {
   gıda: Utensils,
