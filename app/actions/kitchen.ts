@@ -20,7 +20,8 @@ export async function getInventoryAndBudget() {
     .select("family_id")
     .eq("id", user.id)
     .single();
-  if (!profile?.family_id) return { items: [], budget: 0, spent: 0 };
+
+  if (!profile || !profile.family_id) return { items: [], budget: 0, spent: 0 };
 
   // Envanter
   const { data: items } = await supabase
@@ -56,7 +57,7 @@ export async function getInventoryAndBudget() {
   };
 }
 
-// 2. Bütçe Limiti Ayarla
+// 2. Bütçe Limiti Ayarla (HATA BURADAYDI - DÜZELTİLDİ)
 export async function updateBudget(amount: number) {
   const supabase = await createClient();
   const {
@@ -69,8 +70,17 @@ export async function updateBudget(amount: number) {
     .select("family_id, role")
     .eq("id", user.id)
     .single();
-  if (!["owner", "admin"].includes(profile?.role || ""))
+
+  // DÜZELTME: Profilin varlığını kesin kontrol ediyoruz
+  if (!profile) return { error: "Profil bulunamadı." };
+
+  if (!["owner", "admin"].includes(profile.role || "")) {
     return { error: "Sadece ebeveynler bütçe ayarlayabilir." };
+  }
+
+  // family_id'nin var olduğunu yukarıda garantiye aldık (profile varsa family_id de vardır veya null olsa bile sql hata vermez, ama biz yine de logic olarak profile var sayıyoruz)
+  // Daha güvenli olması için:
+  if (!profile.family_id) return { error: "Bir aileye bağlı değilsiniz." };
 
   await supabase
     .from("families")
@@ -94,6 +104,9 @@ export async function addInventoryItem(formData: FormData) {
     .eq("id", user.id)
     .single();
 
+  if (!profile || !profile.family_id) return { error: "Aile bulunamadı" };
+
+  // YETKİ KONTROLÜ
   if (!["owner", "admin"].includes(profile.role || "")) {
     return { error: "Yetkisiz işlem." };
   }
@@ -102,7 +115,7 @@ export async function addInventoryItem(formData: FormData) {
   const quantity = parseFloat(formData.get("quantity") as string);
   const unit = formData.get("unit") as string;
   const category = formData.get("category") as string;
-  const price = parseFloat(formData.get("price") as string) || 0; // Yeni Alan
+  const price = parseFloat(formData.get("price") as string) || 0;
 
   // Ürünü Ekle
   const { error } = await supabase.from("inventory").insert({
@@ -111,16 +124,16 @@ export async function addInventoryItem(formData: FormData) {
     quantity,
     unit,
     category,
-    last_price: price, // Fiyatı kaydet
+    last_price: price,
   });
 
   if (error) return { error: error.message };
 
-  // Eğer fiyat varsa Harcamalara da ekle (Manuel alışveriş sayılır)
+  // Eğer fiyat varsa Harcamalara da ekle
   if (price > 0) {
     await supabase.from("expenses").insert({
       family_id: profile.family_id,
-      amount: price * quantity, // Toplam tutar
+      amount: price * quantity,
       shop_name: "Manuel Ekleme",
       items_json: [{ name, quantity, price }],
     });
@@ -143,6 +156,7 @@ export async function updateItemQuantity(itemId: string, change: number) {
     .select("role, family_id")
     .eq("id", user.id)
     .single();
+  if (!profile) return { error: "Profil yok" };
 
   const { data: item } = await supabase
     .from("inventory")
@@ -156,11 +170,11 @@ export async function updateItemQuantity(itemId: string, change: number) {
 
   // KURAL: Artış varsa (+) ve ebeveyn değilse engelle
   if (change > 0) {
-    if (!["owner", "admin"].includes(profile?.role || "")) {
+    if (!["owner", "admin"].includes(profile.role || "")) {
       return { error: "Stok artırmayı sadece ebeveynler yapabilir." };
     }
 
-    // ARTIŞ VARSA HARCAMAYA EKLE (Son fiyattan)
+    // ARTIŞ VARSA HARCAMAYA EKLE
     if (item.last_price > 0) {
       const cost = item.last_price * change;
       await supabase.from("expenses").insert({
@@ -189,12 +203,28 @@ export async function updateItemQuantity(itemId: string, change: number) {
 // 5. Ürün Sil
 export async function deleteInventoryItem(id: string) {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum açın" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (!profile) return { error: "Profil yok" };
+
+  if (!["owner", "admin"].includes(profile.role || "")) {
+    return { error: "Yetkisiz işlem." };
+  }
+
   await supabase.from("inventory").delete().eq("id", id);
   revalidatePath("/dashboard");
   return { success: true };
 }
 
-// 6. Fiş Okuma (Fiyat Analizli)
+// 6. Fiş Okuma
 export async function scanReceipt(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -207,7 +237,7 @@ export async function scanReceipt(formData: FormData) {
     .select("family_id")
     .eq("id", user.id)
     .single();
-  if (!profile?.family_id) return { error: "Aile yok" };
+  if (!profile || !profile.family_id) return { error: "Aile yok" };
 
   const file = formData.get("receipt") as File;
   if (!file) return { error: "Dosya yok" };
@@ -228,11 +258,8 @@ export async function scanReceipt(formData: FormData) {
     const buffer = Buffer.from(arrayBuffer);
     const base64Data = buffer.toString("base64");
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-    });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    // Prompt'u güncelledik: Birim Fiyatı (unit_price) da istiyoruz
     const prompt = `
       Market fişini analiz et. Ürünlerin BİRİM FİYATINI (unit_price) da çıkar.
       JSON Formatı: 
@@ -259,7 +286,6 @@ export async function scanReceipt(formData: FormData) {
       .trim();
     const data = JSON.parse(text);
 
-    // Harcama Kaydı
     await supabase.from("expenses").insert({
       family_id: profile.family_id,
       amount: data.total_amount,
@@ -268,7 +294,6 @@ export async function scanReceipt(formData: FormData) {
       items_json: data.items,
     });
 
-    // Stok Güncelleme (Fiyatla Birlikte)
     for (const item of data.items) {
       const { data: existing } = await supabase
         .from("inventory")
@@ -282,7 +307,7 @@ export async function scanReceipt(formData: FormData) {
           .from("inventory")
           .update({
             quantity: existing.quantity + item.quantity,
-            last_price: item.unit_price, // Son fiyatı güncelle
+            last_price: item.unit_price,
           })
           .eq("id", existing.id);
       } else {
@@ -292,7 +317,7 @@ export async function scanReceipt(formData: FormData) {
           quantity: item.quantity,
           unit: item.unit || "adet",
           category: item.category || "Genel",
-          last_price: item.unit_price, // Fiyatı kaydet
+          last_price: item.unit_price,
         });
       }
     }
