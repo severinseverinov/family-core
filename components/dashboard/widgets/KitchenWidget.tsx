@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  getInventoryAndBudget,
+  getInventoryAndBudget, // Yeni fonksiyon
   addInventoryItem,
   deleteInventoryItem,
   updateItemQuantity,
@@ -110,6 +110,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     return { [activeTab]: groupedItems[activeTab] };
   }, [activeTab, groupedItems]);
 
+  // Yüzde hesabı (Bütçe Barı için)
   const percentage = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
   const barColor =
     percentage > 90
@@ -161,28 +162,11 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
   };
 
   const handleQuantityChange = async (id: string, change: number) => {
-    setItems(prev =>
-      prev.map(i =>
-        i.id === id ? { ...i, quantity: Math.max(0, i.quantity + change) } : i
-      )
-    );
     const res = await updateItemQuantity(id, change);
     if (res?.error) {
       toast.error(res.error);
-      loadData();
     } else {
-      // Bütçeyi güncellemek için veriyi tekrar çek (harcama arttı)
-      loadData();
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Silmek istediğine emin misin?")) return;
-    const res = await deleteInventoryItem(id);
-    if (res?.error) toast.error(res.error);
-    else {
-      toast.success("Silindi");
-      loadData();
+      loadData(); // Bütçe de değişeceği için komple yenile
     }
   };
 
@@ -195,6 +179,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
             Mutfak & Stok
           </CardTitle>
 
+          {/* Butonlar */}
           <div className="flex gap-1">
             {isAdmin && (
               <Button
@@ -220,6 +205,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
           </div>
         </div>
 
+        {/* BÜTÇE BARI (Varsa) */}
         {budget > 0 && (
           <div className="w-full space-y-1">
             <div className="flex justify-between text-[10px] font-medium text-gray-500">
@@ -237,6 +223,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
       </CardHeader>
 
       <CardContent className="flex-1 overflow-hidden flex flex-col gap-3 p-4 pt-0">
+        {/* SEKMELER */}
         {items.length > 0 && (
           <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
             {tabs.map(tab => (
@@ -256,6 +243,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
           </div>
         )}
 
+        {/* LİSTE */}
         <div className="flex-1 overflow-auto space-y-4 pr-1 scrollbar-thin">
           {loading ? (
             <p className="text-xs text-center text-gray-400 py-4">
@@ -267,9 +255,8 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
               <p>Dolap boş.</p>
             </div>
           ) : (
-            // DÜZELTME: as Record<string, any[]> ekledik
-            Object.entries(displayedGroups as Record<string, any[]>).map(
-              ([category, categoryItems]) => {
+            Object.entries(displayedGroups).map(
+              ([category, categoryItems]: [string, any[]]) => {
                 const Icon = getCategoryIcon(category);
                 if (!categoryItems) return null;
 
@@ -331,7 +318,14 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
 
                             {isAdmin && (
                               <button
-                                onClick={() => handleDelete(item.id)}
+                                onClick={async () => {
+                                  if (
+                                    confirm("Silmek istediğine emin misin?")
+                                  ) {
+                                    await deleteInventoryItem(item.id);
+                                    loadData();
+                                  }
+                                }}
                                 className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1 ml-1"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -348,6 +342,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
           )}
         </div>
 
+        {/* FİŞ YÜKLEME BUTONU */}
         <div className="mt-auto pt-2 border-t border-orange-100 dark:border-orange-900/30">
           <div className="relative group">
             <input
@@ -377,6 +372,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
           </div>
         </div>
 
+        {/* MANUEL EKLEME MODALI */}
         <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
           <DialogContent>
             <DialogHeader>
@@ -421,6 +417,9 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                   step="0.01"
                   placeholder="Opsiyonel"
                 />
+                <p className="text-[10px] text-gray-500">
+                  Girerseniz harcamalara eklenir.
+                </p>
               </div>
 
               <div className="space-y-1">
@@ -448,6 +447,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
           </DialogContent>
         </Dialog>
 
+        {/* BÜTÇE MODALI */}
         <Dialog open={isBudgetOpen} onOpenChange={setIsBudgetOpen}>
           <DialogContent>
             <DialogHeader>
