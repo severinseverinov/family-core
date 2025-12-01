@@ -1,0 +1,34 @@
+{
+  "Navbar": {
+    "login": "Login",
+    "dashboard": "Dashboard",
+    "settings": "Settings & Family",
+    "logout": "Sign Out"
+  },
+  "Calendar": {
+    "title": "Calendar & Tasks",
+    "today": "Today",
+    "noEvents": "Nothing to do 😴",
+    "addEvent": "New Event",
+    "save": "Save",
+    "cancel": "Cancel",
+    "eventTitle": "Title",
+    "start": "Start",
+    "end": "End",
+    "privacy": "Visibility",
+    "repeat": "Repeat",
+    "recurrence_none": "One Time",
+    "recurrence_daily": "Daily",
+    "recurrence_weekly": "Weekly",
+    "recurrence_monthly": "Monthly",
+    "recurrence_yearly": "Yearly",
+    "family": "Family",
+    "private": "Private",
+    "weekDays": "Which Days?",
+    "successAdd": "Added",
+    "successTask": "Great! You earned +{points} Points 🎉"
+  },
+  "Common": {
+    "loading": "Loading..."
+  }
+}

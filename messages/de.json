@@ -1,0 +1,16 @@
+{
+  "Navbar": {
+    "login": "Anmelden",
+    "dashboard": "Instrumententafel",
+    "settings": "Einstellungen",
+    "logout": "Abmelden"
+  },
+  "Dashboard": {
+    "welcome": "Willkommen zurück, {name} 👋",
+    "calendar": "Kalender & Ereignisse",
+    "kitchen": "Küche & Vorrat",
+    "pets": "Haustiere",
+    "gamification": "Punkte & Belohnungen",
+    "vault": "Familientresor"
+  }
+}

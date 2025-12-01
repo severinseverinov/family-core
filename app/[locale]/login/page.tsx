@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Chrome } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react"; // searchParams client tarafında suspense gerektirir
+import { Suspense } from "react";
 
 // İç Bileşen
 function LoginForm() {

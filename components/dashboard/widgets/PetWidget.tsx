@@ -21,7 +21,12 @@ import {
   ListPlus,
   Calendar,
 } from "lucide-react";
-import { getPets, addPet, addPetRoutine, type Pet } from "@/app/actions/pets";
+import {
+  getPets,
+  addPet,
+  addPetRoutine,
+  type Pet,
+} from "@/app/[locale]/actions/pets";
 import { toast } from "sonner";
 
 const PET_TYPES = [

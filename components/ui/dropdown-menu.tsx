@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Slot } from "@radix-ui/react-slot"; // Slot eklendi
+import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/utils";
 
 interface DropdownMenuContextValue {
@@ -40,7 +40,6 @@ const DropdownMenu = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-// asChild desteği eklendi
 const DropdownMenuTrigger = React.forwardRef<
   HTMLButtonElement,
   React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }
@@ -87,7 +86,6 @@ const DropdownMenuContent = React.forwardRef<
 });
 DropdownMenuContent.displayName = "DropdownMenuContent";
 
-// asChild desteği eklendi
 const DropdownMenuItem = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement> & { asChild?: boolean }

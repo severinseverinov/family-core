@@ -11,7 +11,7 @@ import {
   createInvitation,
   cancelInvitation,
   removeMember,
-} from "@/app/actions/family";
+} from "@/app/[locale]/actions/family";
 
 export function MembersWidget({
   initialMembers,

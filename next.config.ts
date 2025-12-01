@@ -1,22 +1,22 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
+
+const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "lh3.googleusercontent.com", // Google giriş avatarları için
+        hostname: "lh3.googleusercontent.com",
       },
       {
         protocol: "https",
-        // BURAYI KENDİ SUPABASE URL'İNİN BAŞI İLE DEĞİŞTİR
-        // Örn: 'xyzproject.supabase.co'
-        hostname: "gwbmjgvhbrzrrtsgecox.supabase.co",
+        hostname: "**.supabase.co", // Kendi Supabase URL'ini buraya yazabilirsin
       },
     ],
   },
-  /* config options here */
   reactCompiler: true,
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);

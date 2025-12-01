@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { tr } from "date-fns/locale";
+import { tr, enUS, de } from "date-fns/locale"; // Diğer dilleri de ekledik
 import { Plus, Calendar as CalIcon, PawPrint, Repeat } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations, useLocale } from "next-intl"; // <-- EKLENDİ
 
 import {
   createEvent,
@@ -26,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-// Günler Listesi (JS getDay() uyumlu: 1=Pzt ... 0=Pz)
+// ... (WEEKDAYS dizisi sabit kalabilir veya onu da çevirebiliriz ama şimdilik kalsın)
 const WEEKDAYS = [
   { id: 1, label: "Pt" },
   { id: 2, label: "Sa" },
@@ -46,21 +47,24 @@ export function CalendarWidget({
   initialItems,
   initialHolidays,
 }: CalendarWidgetProps) {
+  const t = useTranslations("Calendar"); // <-- Çeviri kancası
+  const tCommon = useTranslations("Common");
+  const locale = useLocale(); // <-- Aktif dili al (tr, en, de)
+
   const router = useRouter();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     new Date()
   );
-
   const [items, setItems] = useState<DashboardItem[]>(initialItems);
   const [holidays, setHolidays] = useState<Holiday[]>(initialHolidays);
   const [loading, setLoading] = useState(false);
-
-  // Form State
   const [frequency, setFrequency] = useState("none");
   const [selectedWeekDays, setSelectedWeekDays] = useState<number[]>([]);
 
-  // Tarih değiştiğinde
+  // Tarih formatı için doğru 'date-fns' locale nesnesini seç
+  const dateLocale = locale === "tr" ? tr : locale === "de" ? de : enUS;
+
   const fetchItemsForDate = async (date: Date) => {
     setLoading(true);
     try {
@@ -87,7 +91,8 @@ export function CalendarWidget({
     if (res.error) {
       toast.error(res.error);
     } else {
-      toast.success(`Harika! +${points} Puan kazandın 🎉`);
+      // Parametreli çeviri kullanımı
+      toast.success(t("successTask", { points }));
       if (selectedDate) fetchItemsForDate(selectedDate);
       router.refresh();
     }
@@ -98,7 +103,6 @@ export function CalendarWidget({
     return holidays.find(h => h.date === dateStr);
   };
 
-  // Gün seçimi değiştirme
   const toggleWeekDay = (dayId: number) => {
     setSelectedWeekDays(prev =>
       prev.includes(dayId) ? prev.filter(d => d !== dayId) : [...prev, dayId]
@@ -109,7 +113,7 @@ export function CalendarWidget({
     <Card className="h-full flex flex-col shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-bold text-gray-700 dark:text-gray-200">
-          Takvim & Görevler
+          {t("title")} {/* "Takvim & Görevler" yerine */}
         </CardTitle>
         <Button
           variant="outline"
@@ -129,7 +133,7 @@ export function CalendarWidget({
             selected={selectedDate}
             onSelect={setSelectedDate}
             onDayClick={handleDayClick}
-            locale={tr}
+            locale={dateLocale} // Dinamik locale
             className="rounded-md"
             modifiers={{ holiday: holidays.map(h => new Date(h.date)) }}
             modifiersStyles={{
@@ -143,12 +147,14 @@ export function CalendarWidget({
           <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 border-b pb-2 flex justify-between">
             <span>
               {selectedDate
-                ? format(selectedDate, "d MMMM yyyy, EEEE", { locale: tr })
-                : "Bugün"}
+                ? format(selectedDate, "d MMMM yyyy, EEEE", {
+                    locale: dateLocale,
+                  })
+                : t("today")}
             </span>
             {loading && (
               <span className="text-xs text-gray-400 animate-pulse">
-                Yükleniyor...
+                {tCommon("loading")}
               </span>
             )}
           </h4>
@@ -175,9 +181,8 @@ export function CalendarWidget({
                       <p className="text-xs font-bold text-gray-800 dark:text-gray-200">
                         {event.title}
                       </p>
-                      {/* DÜZELTME: Repeat ikonunu span içine aldık */}
                       {event.frequency && event.frequency !== "none" && (
-                        <span title="Tekrarlı">
+                        <span title={t("repeat")}>
                           <Repeat className="h-3 w-3 text-gray-400" />
                         </span>
                       )}
@@ -211,7 +216,6 @@ export function CalendarWidget({
                     >
                       <PawPrint className="h-4 w-4" />
                     </div>
-
                     <div>
                       <p
                         className={`text-xs font-bold ${
@@ -234,7 +238,6 @@ export function CalendarWidget({
                       </div>
                     </div>
                   </div>
-
                   {!task.is_completed && (
                     <Button
                       size="sm"
@@ -253,55 +256,51 @@ export function CalendarWidget({
             {!loading && items.length === 0 && (
               <div className="text-center text-xs text-gray-400 py-6 flex flex-col items-center gap-1">
                 <span>😴</span>
-                <span>Yapılacak bir şey yok</span>
+                <span>{t("noEvents")}</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* YENİ ETKİNLİK MODALI */}
+        {/* MODAL */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Yeni Etkinlik</DialogTitle>
+              <DialogTitle>{t("addEvent")}</DialogTitle>
               <DialogDescription>
-                Takvime yeni bir etkinlik ekle.
+                {selectedDate
+                  ? format(selectedDate, "d MMMM yyyy", { locale: dateLocale })
+                  : ""}
               </DialogDescription>
             </DialogHeader>
             <form
               action={async fd => {
-                // Seçilen tarihi form data'ya ekle
                 const dateVal = selectedDate
                   ? format(selectedDate, "yyyy-MM-dd")
                   : format(new Date(), "yyyy-MM-dd");
                 const startTime = fd.get("start_time_only") as string;
                 const endTime = fd.get("end_time_only") as string;
-
                 fd.append("start_time", `${dateVal}T${startTime}`);
                 fd.append("end_time", `${dateVal}T${endTime}`);
-
-                // Seçilen günleri gönder (Haftalık ise)
                 if (frequency === "weekly" && selectedWeekDays.length > 0) {
                   fd.append("recurrence_days", selectedWeekDays.join(","));
                 }
-
                 const res = await createEvent(fd);
                 if (res?.error) toast.error(res.error);
                 else {
                   setIsDialogOpen(false);
-                  toast.success("Eklendi");
-                  setFrequency("none"); // Reset
-                  setSelectedWeekDays([]); // Reset
+                  toast.success(t("successAdd"));
+                  setFrequency("none");
+                  setSelectedWeekDays([]);
                   if (selectedDate) fetchItemsForDate(selectedDate);
                 }
               }}
               className="space-y-3"
             >
               <div className="space-y-1">
-                <label className="text-xs font-medium">Başlık</label>
+                <label className="text-xs font-medium">{t("eventTitle")}</label>
                 <input
                   name="title"
-                  placeholder="Örn: Akşam Yemeği"
                   className="w-full border p-2 rounded text-sm"
                   required
                 />
@@ -309,7 +308,7 @@ export function CalendarWidget({
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">Başlangıç</label>
+                  <label className="text-xs font-medium">{t("start")}</label>
                   <input
                     type="time"
                     name="start_time_only"
@@ -319,7 +318,7 @@ export function CalendarWidget({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">Bitiş</label>
+                  <label className="text-xs font-medium">{t("end")}</label>
                   <input
                     type="time"
                     name="end_time_only"
@@ -332,37 +331,36 @@ export function CalendarWidget({
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">Görünürlük</label>
+                  <label className="text-xs font-medium">{t("privacy")}</label>
                   <select
                     name="privacy_level"
                     className="w-full border p-2 rounded text-sm bg-background"
                   >
-                    <option value="family">Tüm Aile</option>
-                    <option value="private">Gizli</option>
+                    <option value="family">{t("family")}</option>
+                    <option value="private">{t("private")}</option>
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">Tekrar</label>
+                  <label className="text-xs font-medium">{t("repeat")}</label>
                   <select
                     name="frequency"
                     className="w-full border p-2 rounded text-sm bg-background"
                     value={frequency}
                     onChange={e => setFrequency(e.target.value)}
                   >
-                    <option value="none">Tek Seferlik</option>
-                    <option value="daily">Her Gün</option>
-                    <option value="weekly">Haftalık</option>
-                    <option value="monthly">Her Ay</option>
-                    <option value="yearly">Her Yıl</option>
+                    <option value="none">{t("recurrence_none")}</option>
+                    <option value="daily">{t("recurrence_daily")}</option>
+                    <option value="weekly">{t("recurrence_weekly")}</option>
+                    <option value="monthly">{t("recurrence_monthly")}</option>
+                    <option value="yearly">{t("recurrence_yearly")}</option>
                   </select>
                 </div>
               </div>
 
-              {/* GÜN SEÇİCİ (Sadece Haftalık seçilirse görünür) */}
               {frequency === "weekly" && (
                 <div className="space-y-2 bg-gray-50 p-2 rounded border border-dashed">
                   <label className="text-xs font-medium text-gray-500">
-                    Hangi Günler?
+                    {t("weekDays")}
                   </label>
                   <div className="flex justify-between">
                     {WEEKDAYS.map(day => (
@@ -372,27 +370,27 @@ export function CalendarWidget({
                         onClick={() => toggleWeekDay(day.id)}
                         className={`w-8 h-8 rounded-full text-xs font-medium transition-all ${
                           selectedWeekDays.includes(day.id)
-                            ? "bg-blue-600 text-white shadow-md scale-110"
-                            : "bg-white border text-gray-600 hover:bg-gray-100"
+                            ? "bg-blue-600 text-white shadow-md"
+                            : "bg-white border text-gray-600"
                         }`}
                       >
                         {day.label}
                       </button>
                     ))}
                   </div>
-                  <p className="text-[10px] text-gray-400 text-center">
-                    Hiçbiri seçilmezse sadece{" "}
-                    {selectedDate
-                      ? format(selectedDate, "EEEE", { locale: tr })
-                      : "seçili gün"}{" "}
-                    tekrar eder.
-                  </p>
                 </div>
               )}
 
-              <Button type="submit" className="w-full mt-2">
-                Kaydet
-              </Button>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setIsDialogOpen(false)}
+                >
+                  {t("cancel")}
+                </Button>
+                <Button type="submit">{t("save")}</Button>
+              </div>
             </form>
           </DialogContent>
         </Dialog>

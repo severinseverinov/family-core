@@ -1,7 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { CreateFamilyForm } from "@/components/dashboard/CreateFamilyForm";
-import { signOut } from "@/app/actions/auth";
+import { signOut } from "@/app/[locale]/actions/auth";
 import { headers } from "next/headers"; // <-- Header okumak için eklendi
 
 // Widgetlar
@@ -12,13 +12,16 @@ import { GamificationWidget } from "@/components/dashboard/widgets/GamificationW
 import { VaultWidget } from "@/components/dashboard/widgets/VaultWidget";
 
 // Actionlar
-import { getDashboardItems, getPublicHolidays } from "@/app/actions/events";
+import {
+  getDashboardItems,
+  getPublicHolidays,
+} from "@/app/[locale]/actions/events";
 import {
   getLeaderboard,
   getRewards,
   getPointHistory,
   getPointRules,
-} from "@/app/actions/gamification";
+} from "@/app/[locale]/actions/gamification";
 
 export default async function Dashboard() {
   const supabase = await createClient();

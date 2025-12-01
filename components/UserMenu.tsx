@@ -8,7 +8,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator, // Artık bunu kullanabiliriz
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { LogOut, Settings } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -45,7 +45,6 @@ export function UserMenu({ user }: UserMenuProps) {
         </Avatar>
       </DropdownMenuTrigger>
 
-      {/* DÜZELTME: align="end" kaldırıldı (CSS ile zaten sağa yaslı) */}
       <DropdownMenuContent className="w-56 mr-4 mt-2">
         <div className="px-2 py-1.5">
           <p className="text-sm font-medium text-gray-900 dark:text-gray-50">
