@@ -36,7 +36,7 @@ import {
   scanReceipt,
   updateBudget,
 } from "@/app/actions/kitchen";
-import { useTranslations } from "next-intl"; // <-- EKLENDİ
+import { useTranslations, useLocale } from "next-intl"; // <-- locale eklendi
 
 const CATEGORY_ICONS: Record<string, any> = {
   gıda: Utensils,
@@ -58,8 +58,9 @@ const getCategoryIcon = (category: string) => {
 };
 
 export function KitchenWidget({ userRole }: { userRole: string }) {
-  const t = useTranslations("Kitchen"); // <-- Kitchen grubu
+  const t = useTranslations("Kitchen");
   const tCommon = useTranslations("Common");
+  const locale = useLocale(); // <-- Aktif Dili Al
 
   const [items, setItems] = useState<any[]>([]);
   const [budget, setBudget] = useState(0);
@@ -68,7 +69,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
   const [isScanning, setIsScanning] = useState(false);
   const [isManualOpen, setIsManualOpen] = useState(false);
   const [isBudgetOpen, setIsBudgetOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("ALL"); // <-- Sabit anahtar kullan
+  const [activeTab, setActiveTab] = useState("ALL");
 
   const isAdmin = ["owner", "admin"].includes(userRole);
 
@@ -90,6 +91,8 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     const groups: Record<string, any[]> = {};
     items.forEach(item => {
       let cat = item.category || "Genel";
+      // Kategoriyi Çeviri Anahtarı Olarak Kullanabiliriz veya Basitçe Gösteririz
+      // Şimdilik veritabanından gelen kategori ismini kullanıyoruz.
       cat = cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase();
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(item);
@@ -102,7 +105,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
       }, {});
   }, [items]);
 
-  // Sekmeler (Çevirili)
   const tabs = useMemo(
     () => ["ALL", ...Object.keys(groupedItems)],
     [groupedItems]
@@ -121,6 +123,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
       ? "bg-yellow-500"
       : "bg-green-500";
 
+  // ... (Handle fonksiyonları aynı) ...
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -141,7 +144,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
       e.target.value = "";
     }
   };
-
   const handleManualAdd = async (fd: FormData) => {
     const res = await addInventoryItem(fd);
     if (res?.error) toast.error(tCommon("error"));
@@ -151,7 +153,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
       loadData();
     }
   };
-
   const handleBudgetUpdate = async (fd: FormData) => {
     const amount = parseFloat(fd.get("budget") as string);
     const res = await updateBudget(amount);
@@ -162,7 +163,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
       loadData();
     }
   };
-
   const handleQuantityChange = async (id: string, change: number) => {
     setItems(prev =>
       prev.map(i =>
@@ -177,7 +177,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
       loadData();
     }
   };
-
   const handleDelete = async (id: string) => {
     if (!confirm(tCommon("delete") + "?")) return;
     const res = await deleteInventoryItem(id);
@@ -188,6 +187,16 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     }
   };
 
+  // Ürün İsmini Dile Göre Seçme
+  const getProductName = (item: any) => {
+    // Eğer dil Türkçe değilse (en, de) ve İngilizce isim varsa onu göster
+    if (locale !== "tr" && item.product_name_en) {
+      return item.product_name_en;
+    }
+    // Yoksa orijinal (Türkçe) ismi göster
+    return item.product_name;
+  };
+
   return (
     <Card className="h-full flex flex-col border-orange-100 bg-orange-50/30 dark:bg-orange-900/10 dark:border-orange-900/30 shadow-sm">
       <CardHeader className="pb-2 flex flex-col gap-3 space-y-0">
@@ -196,7 +205,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
             <ShoppingBag className="h-4 w-4" />
             {t("title")}
           </CardTitle>
-
           <div className="flex gap-1">
             {isAdmin && (
               <Button
@@ -220,15 +228,16 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
             )}
           </div>
         </div>
-
         {budget > 0 && (
           <div className="w-full space-y-1">
             <div className="flex justify-between text-[10px] font-medium text-gray-500">
               <span>
-                {t("spent")}: {spent.toLocaleString("tr-TR")}₺
+                {t("spent")}:{" "}
+                {spent.toLocaleString(locale === "tr" ? "tr-TR" : "de-DE")}₺
               </span>
               <span>
-                {t("limit")}: {budget.toLocaleString("tr-TR")}₺
+                {t("limit")}:{" "}
+                {budget.toLocaleString(locale === "tr" ? "tr-TR" : "de-DE")}₺
               </span>
             </div>
             <div className="h-2 w-full bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
@@ -255,7 +264,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                     : "bg-white text-gray-600"
                 )}
               >
-                {tab === "ALL" ? t("tabAll") : tab} {/* <-- Çeviri */}
+                {tab === "ALL" ? t("tabAll") : tab}
               </button>
             ))}
           </div>
@@ -277,7 +286,10 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                 const Icon = getCategoryIcon(category);
                 if (!categoryItems) return null;
                 return (
-                  <div key={category} className="space-y-1">
+                  <div
+                    key={category}
+                    className="space-y-1 animate-in fade-in slide-in-from-bottom-2 duration-300"
+                  >
                     {activeTab === "ALL" && (
                       <div className="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase px-1 py-1">
                         <Icon className="h-3 w-3" />
@@ -295,8 +307,9 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                               <Icon className="h-4 w-4" />
                             </div>
                             <div>
+                              {/* DİNAMİK İSİM GÖSTERİMİ */}
                               <p className="text-sm font-medium">
-                                {item.product_name}
+                                {getProductName(item)}
                               </p>
                               <div className="flex gap-2 text-[10px] text-gray-500">
                                 <span>
@@ -344,6 +357,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
           )}
         </div>
 
+        {/* ... (Alt kısımdaki Fiş Yükleme ve Modallar aynı kalabilir, metinler zaten çevrildi) ... */}
         <div className="mt-auto pt-2 border-t border-orange-100">
           <div className="relative group">
             <input
@@ -373,6 +387,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
         </div>
 
         <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
+          {/* ... Modal içeriği aynı, sadece t('key') kullan ... */}
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{t("manualAdd")}</DialogTitle>
