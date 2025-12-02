@@ -7,8 +7,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const apiKey = process.env.GEMINI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
-// --- STOK (INVENTORY) FONKSİYONLARI ---
-
+// 1. Envanteri ve Bütçe Durumunu Getir
 export async function getInventoryAndBudget() {
   const supabase = await createClient();
   const {
@@ -21,10 +20,11 @@ export async function getInventoryAndBudget() {
     .select("family_id")
     .eq("id", user.id)
     .single();
+
   if (!profile || !profile.family_id)
     return { items: [], budget: 0, spent: 0, shoppingList: [] };
 
-  // Stok
+  // Envanter
   const { data: items } = await supabase
     .from("inventory")
     .select("*")
@@ -39,17 +39,18 @@ export async function getInventoryAndBudget() {
     .order("is_checked", { ascending: true }) // Yapılmamışlar üstte
     .order("created_at", { ascending: false });
 
-  // Bütçe
+  // Aile Bütçesi
   const { data: family } = await supabase
     .from("families")
     .select("kitchen_budget")
     .eq("id", profile.family_id)
     .single();
 
-  // Harcama
+  // Bu Ayki Harcamalar
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
+
   const { data: expenses } = await supabase
     .from("expenses")
     .select("amount")
@@ -66,19 +67,28 @@ export async function getInventoryAndBudget() {
   };
 }
 
-// Bütçe Güncelle
+// 2. Bütçe Limiti Ayarla
 export async function updateBudget(amount: number) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) return { error: "Yetkisiz" };
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("family_id, role")
-    .eq("id", user?.id)
+    .eq("id", user.id)
     .single();
-  if (!profile || !["owner", "admin"].includes(profile.role))
-    return { error: "Yetkisiz" };
+
+  // Profilin varlığını kesin kontrol ediyoruz
+  if (!profile) return { error: "Profil bulunamadı." };
+
+  if (!["owner", "admin"].includes(profile.role || "")) {
+    return { error: "Sadece ebeveynler bütçe ayarlayabilir." };
+  }
+
+  if (!profile.family_id) return { error: "Bir aileye bağlı değilsiniz." };
 
   await supabase
     .from("families")
@@ -88,20 +98,26 @@ export async function updateBudget(amount: number) {
   return { success: true };
 }
 
-// Stok Ekle
+// 3. Manuel Ürün Ekle (Fiyatlı)
 export async function addInventoryItem(formData: FormData) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum açın" };
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("family_id, role")
-    .eq("id", user?.id)
+    .eq("id", user.id)
     .single();
 
-  if (!profile || !["owner", "admin"].includes(profile.role))
-    return { error: "Yetkisiz işlem" };
+  if (!profile || !profile.family_id) return { error: "Aile bulunamadı" };
+
+  // YETKİ KONTROLÜ
+  if (!["owner", "admin"].includes(profile.role || "")) {
+    return { error: "Yetkisiz işlem." };
+  }
 
   const name = formData.get("name") as string;
   const quantity = parseFloat(formData.get("quantity") as string);
@@ -109,10 +125,10 @@ export async function addInventoryItem(formData: FormData) {
   const category = formData.get("category") as string;
   const price = parseFloat(formData.get("price") as string) || 0;
 
+  // Ürünü Ekle
   const { error } = await supabase.from("inventory").insert({
     family_id: profile.family_id,
     product_name: name,
-    product_name_en: name,
     quantity,
     unit,
     category,
@@ -121,6 +137,7 @@ export async function addInventoryItem(formData: FormData) {
 
   if (error) return { error: error.message };
 
+  // Eğer fiyat varsa Harcamalara da ekle
   if (price > 0) {
     await supabase.from("expenses").insert({
       family_id: profile.family_id,
@@ -129,36 +146,48 @@ export async function addInventoryItem(formData: FormData) {
       items_json: [{ name, quantity, price }],
     });
   }
+
   revalidatePath("/dashboard");
   return { success: true };
 }
 
-// Stok Güncelle
+// 4. Miktar Güncelleme (+/-)
 export async function updateItemQuantity(itemId: string, change: number) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum açın" };
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("role, family_id")
-    .eq("id", user?.id)
+    .eq("id", user.id)
     .single();
+  if (!profile) return { error: "Profil yok" };
 
   const { data: item } = await supabase
     .from("inventory")
     .select("quantity, last_price, product_name")
     .eq("id", itemId)
     .single();
-  if (!item) return { error: "Ürün yok" };
 
+  if (!item) return { error: "Ürün bulunamadı" };
+
+  const newQuantity = item.quantity + change;
+
+  // KURAL: Artış varsa (+) ve ebeveyn değilse engelle
   if (change > 0) {
-    if (!["owner", "admin"].includes(profile?.role || ""))
-      return { error: "Sadece ebeveynler artırabilir." };
+    if (!["owner", "admin"].includes(profile.role || "")) {
+      return { error: "Stok artırmayı sadece ebeveynler yapabilir." };
+    }
+
+    // ARTIŞ VARSA HARCAMAYA EKLE
     if (item.last_price > 0) {
+      const cost = item.last_price * change;
       await supabase.from("expenses").insert({
         family_id: profile.family_id,
-        amount: item.last_price * change,
+        amount: cost,
         shop_name: "Stok Güncelleme",
         items_json: [
           { name: item.product_name, quantity: change, price: item.last_price },
@@ -167,24 +196,43 @@ export async function updateItemQuantity(itemId: string, change: number) {
     }
   }
 
-  const newQuantity = Math.max(0, item.quantity + change);
-  await supabase
+  if (newQuantity < 0) return { error: "Stok yetersiz." };
+
+  const { error } = await supabase
     .from("inventory")
     .update({ quantity: newQuantity })
     .eq("id", itemId);
 
+  if (error) return { error: error.message };
   revalidatePath("/dashboard");
   return { success: true };
 }
 
+// 5. Ürün Sil
 export async function deleteInventoryItem(id: string) {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum açın" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (!profile) return { error: "Profil yok" };
+
+  if (!["owner", "admin"].includes(profile.role || "")) {
+    return { error: "Yetkisiz işlem." };
+  }
+
   await supabase.from("inventory").delete().eq("id", id);
   revalidatePath("/dashboard");
   return { success: true };
 }
 
-// --- ALIŞVERİŞ LİSTESİ (SHOPPING LIST) FONKSİYONLARI ---
+// --- ALIŞVERİŞ LİSTESİ (SHOPPING LIST) ---
 
 export async function addToShoppingList(formData: FormData) {
   const supabase = await createClient();
@@ -199,7 +247,21 @@ export async function addToShoppingList(formData: FormData) {
 
   if (!profile?.family_id) return { error: "Hata" };
 
-  const name = formData.get("name") as string;
+  const name = (formData.get("name") as string).trim();
+
+  // AYNISI VAR MI KONTROLÜ (Büyük/küçük harf duyarsız)
+  // Sadece alınmamış (is_checked = false) ürünler arasında arıyoruz.
+  const { data: existingItem } = await supabase
+    .from("shopping_list")
+    .select("id")
+    .eq("family_id", profile.family_id)
+    .eq("is_checked", false)
+    .ilike("product_name", name) // "süt" == "Süt"
+    .maybeSingle();
+
+  if (existingItem) {
+    return { error: "Bu ürün zaten listenizde var." };
+  }
 
   const { error } = await supabase.from("shopping_list").insert({
     family_id: profile.family_id,
@@ -240,34 +302,38 @@ export async function clearCompletedShoppingItems() {
     .eq("id", user?.id)
     .single();
 
-  await supabase
-    .from("shopping_list")
-    .delete()
-    .eq("family_id", profile?.family_id)
-    .eq("is_checked", true);
+  if (profile?.family_id) {
+    await supabase
+      .from("shopping_list")
+      .delete()
+      .eq("family_id", profile.family_id)
+      .eq("is_checked", true);
+  }
 
   revalidatePath("/dashboard");
   return { success: true };
 }
 
-// --- FİŞ OKUMA VE ENTEGRASYON ---
-
+// 6. Fiş Okuma
 export async function scanReceipt(formData: FormData) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum açın" };
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("family_id")
-    .eq("id", user?.id)
+    .eq("id", user.id)
     .single();
-
-  if (!profile?.family_id) return { error: "Hata" };
+  if (!profile || !profile.family_id) return { error: "Aile yok" };
 
   const file = formData.get("receipt") as File;
+  if (!file) return { error: "Dosya yok" };
+
   const fileExt = file.name.split(".").pop();
-  const fileName = `${user?.id}-${Date.now()}.${fileExt}`;
+  const fileName = `${user.id}-${Date.now()}.${fileExt}`;
   const filePath = `receipts/${fileName}`;
 
   await supabase.storage.from("images").upload(filePath, file);
@@ -276,25 +342,34 @@ export async function scanReceipt(formData: FormData) {
   } = supabase.storage.from("images").getPublicUrl(filePath);
 
   try {
-    if (!genAI) throw new Error("API Key Eksik");
+    if (!genAI) throw new Error("API Anahtarı eksik");
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const base64Data = buffer.toString("base64");
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-    });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `
-      Market fişini analiz et.
-      JSON: { "shop_name": string, "total_amount": number, "items": [{ "name": string, "name_en": string, "quantity": number, "unit": string, "category": string, "unit_price": number }] }
-      Ürün isimlerini sadeleştir (Örn: "Pınar Süt" -> "Süt"). name_en: İngilizce karşılığı.
+      Market fişini analiz et. Ürünlerin BİRİM FİYATINI (unit_price) da çıkar.
+      JSON Formatı: 
+      { 
+        "shop_name": string, 
+        "total_amount": number, 
+        "items": [
+          { "name": "string", "name_en": "string", "quantity": number, "unit": "string", "category": "string", "unit_price": number }
+        ] 
+      }
+      Birim fiyat yoksa toplam fiyattan hesapla. Sadece JSON ver.
     `;
 
     const result = await model.generateContent([
       prompt,
-      { inlineData: { data: base64Data, mimeType: file.type || "image/jpeg" } },
+      {
+        inlineData: { data: base64Data, mimeType: file.type || "image/jpeg" },
+      },
     ]);
+
     const response = await result.response;
     const text = response
       .text()
@@ -303,7 +378,6 @@ export async function scanReceipt(formData: FormData) {
       .trim();
     const data = JSON.parse(text);
 
-    // Harcama Kaydet
     await supabase.from("expenses").insert({
       family_id: profile.family_id,
       amount: data.total_amount,
@@ -313,7 +387,6 @@ export async function scanReceipt(formData: FormData) {
     });
 
     for (const item of data.items) {
-      // 1. Stoğa Ekle
       const { data: existing } = await supabase
         .from("inventory")
         .select("id, quantity")
@@ -342,21 +415,18 @@ export async function scanReceipt(formData: FormData) {
         });
       }
 
-      // 2. ALIŞVERİŞ LİSTESİNDEN DÜŞ (OTOMATİK SİLME)
-      // Fişte "Süt" var, listede "Süt" veya "Milk" varsa sil.
-      const { error: delError } = await supabase
+      // Alışveriş Listesinden Düş (Otomatik)
+      await supabase
         .from("shopping_list")
         .delete()
         .eq("family_id", profile.family_id)
-        .ilike("product_name", item.name); // Tam isim eşleşmesi arar
-
-      // Alternatif: Eğer Türkçe isimle bulamazsa, İngilizce isimle de dene (Opsiyonel)
-      // if (item.name_en) ...
+        .ilike("product_name", item.name);
     }
 
     revalidatePath("/dashboard");
     return { success: true, data };
   } catch (error: any) {
+    console.error("AI Hatası:", error);
     return { error: "Fiş okunamadı: " + error.message };
   }
 }

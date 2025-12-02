@@ -18,13 +18,20 @@
   },
   "Dashboard": {
     "welcome": "Welcome back, {name} 👋",
-    "subtitle": "Your family status at a glance. (Location: {country})"
+    "subtitle": "Your family status at a glance. (Location: {country})",
+    "calendar": "Calendar & Tasks",
+    "kitchen": "Kitchen & Stock",
+    "pets": "Pets",
+    "gamification": "Points & Rewards",
+    "vault": "Family Vault"
   },
   "Calendar": {
     "title": "Calendar & Tasks",
     "today": "Today",
     "noEvents": "Nothing to do 😴",
     "addEvent": "New Event",
+    "save": "Save",
+    "cancel": "Cancel",
     "eventTitle": "Title",
     "start": "Start",
     "end": "End",

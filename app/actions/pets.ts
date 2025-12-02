@@ -8,6 +8,8 @@ export interface Pet {
   name: string;
   type: string;
   color: string | null;
+  gender: string | null;
+  image_url: string | null;
   family_id: string;
   created_at: string;
 }
@@ -61,12 +63,37 @@ export async function addPet(formData: FormData) {
 
   const name = formData.get("name") as string;
   const type = formData.get("type") as string;
-  const color = formData.get("color") as string;
+  const gender = (formData.get("gender") as string) || "male";
+  let color = formData.get("color") as string;
+
+  if (!color || color === "#000000") {
+    color = gender === "female" ? "#ec4899" : "#3b82f6";
+  }
+
+  let image_url = null;
+
+  const file = formData.get("image") as File;
+  if (file && file.size > 0) {
+    const fileExt = file.name.split(".").pop();
+    const fileName = `pets/${user.id}-${Date.now()}.${fileExt}`;
+    const { error: uploadError } = await supabase.storage
+      .from("images")
+      .upload(fileName, file);
+
+    if (!uploadError) {
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("images").getPublicUrl(fileName);
+      image_url = publicUrl;
+    }
+  }
 
   const { error } = await supabase.from("pets").insert({
     name,
     type,
     color,
+    gender,
+    image_url,
     family_id: profile.family_id,
   });
 
@@ -75,7 +102,7 @@ export async function addPet(formData: FormData) {
   return { success: true };
 }
 
-// 3. Rutin Ekle (GÜNCELLENDİ: Sıklık ve Tarih)
+// 3. Rutin Ekle
 export async function addPetRoutine(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -94,9 +121,6 @@ export async function addPetRoutine(formData: FormData) {
   const title = formData.get("title") as string;
   const points = parseInt(formData.get("points") as string);
   const frequency = (formData.get("frequency") as string) || "daily";
-
-  // Başlangıç tarihi (Varsayılan: Bugün)
-  // Bu tarih, haftalık/aylık tekrarların "hangi gün" olacağını belirler.
   const startDate =
     (formData.get("startDate") as string) || new Date().toISOString();
 
@@ -106,7 +130,7 @@ export async function addPetRoutine(formData: FormData) {
     title,
     points,
     frequency,
-    created_at: startDate, // Başlangıç tarihini referans olarak created_at'e kaydediyoruz
+    created_at: startDate,
   });
 
   if (error) return { error: error.message };
@@ -124,18 +148,15 @@ export async function completePetTask(routineId: string, dateStr?: string) {
 
   const { data: routine } = await supabase
     .from("pet_routines")
-    .select("points, title, family_id")
+    .select("points, title")
     .eq("id", routineId)
     .single();
-
   if (!routine) return { error: "Rutin bulunamadı" };
 
-  // Hangi gün için yapılıyor? (Varsayılan: Bugün)
   const targetDate = dateStr ? new Date(dateStr) : new Date();
   const targetDateStart = targetDate.toISOString().split("T")[0] + "T00:00:00";
   const targetDateEnd = targetDate.toISOString().split("T")[0] + "T23:59:59";
 
-  // O gün zaten yapılmış mı?
   const { data: existingLog } = await supabase
     .from("pet_task_logs")
     .select("id")
@@ -144,26 +165,80 @@ export async function completePetTask(routineId: string, dateStr?: string) {
     .lte("completed_at", targetDateEnd)
     .single();
 
-  if (existingLog) return { error: "Bu görev o gün zaten yapılmış!" };
+  if (existingLog) return { error: "Bu görev zaten yapılmış!" };
 
-  // Log Oluştur (Tarih olarak seçilen günü kaydediyoruz)
   const { error: logError } = await supabase.from("pet_task_logs").insert({
     routine_id: routineId,
     profile_id: user.id,
-    completed_at: targetDate.toISOString(), // Seçilen güne işle
+    completed_at: targetDate.toISOString(),
   });
 
-  if (logError) return { error: "Log hatası: " + logError.message };
+  if (logError) return { error: "Log hatası" };
 
-  // Puan Ver
-  const { error: pointError } = await supabase.rpc("add_points", {
+  await supabase.rpc("add_points", {
     target_user_id: user.id,
     points_amount: routine.points,
     reason: `Görev: ${routine.title}`,
   });
 
-  if (pointError) return { error: "Puan eklenemedi" };
-
   revalidatePath("/dashboard");
   return { success: true, points: routine.points };
+}
+
+// 5. Pet Güncelle (YENİ)
+export async function updatePet(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum açın" };
+
+  const petId = formData.get("petId") as string;
+  const name = formData.get("name") as string;
+  const type = formData.get("type") as string;
+  const gender = formData.get("gender") as string;
+  const color = formData.get("color") as string;
+
+  // Güncellenecek veriler
+  const updates: any = { name, type, gender, color };
+
+  // Yeni resim var mı?
+  const file = formData.get("image") as File;
+  if (file && file.size > 0) {
+    const fileExt = file.name.split(".").pop();
+    const fileName = `pets/${user.id}-${Date.now()}.${fileExt}`;
+    const { error: uploadError } = await supabase.storage
+      .from("images")
+      .upload(fileName, file);
+
+    if (!uploadError) {
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("images").getPublicUrl(fileName);
+      updates.image_url = publicUrl;
+    }
+  }
+
+  const { error } = await supabase.from("pets").update(updates).eq("id", petId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+// 6. Pet Sil (YENİ)
+export async function deletePet(petId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Yetkisiz" };
+
+  // Önce bağlı rutinleri ve logları silmek gerekebilir (Cascade açıksa gerek yok)
+  // Biz Cascade eklemiştik, direkt silinebilir.
+  const { error } = await supabase.from("pets").delete().eq("id", petId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/dashboard");
+  return { success: true };
 }

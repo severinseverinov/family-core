@@ -2,7 +2,7 @@
   "Navbar": {
     "login": "Giriş Yap",
     "dashboard": "Panel",
-    "settings": "Ayarlar",
+    "settings": "Ayarlar & Aile",
     "logout": "Çıkış Yap"
   },
   "Common": {
@@ -18,18 +18,34 @@
   },
   "Dashboard": {
     "welcome": "Hoş geldin, {name} 👋",
-    "subtitle": "Ailenizin durumu bir bakışta burada. (Konum: {country})"
+    "subtitle": "Ailenizin durumu bir bakışta burada. (Konum: {country})",
+    "calendar": "Takvim & Etkinlikler",
+    "kitchen": "Mutfak & Stok",
+    "pets": "Evcil Hayvanlar",
+    "gamification": "Puan & Ödül",
+    "vault": "Aile Kasası"
   },
   "Calendar": {
     "title": "Takvim & Görevler",
     "today": "Bugün",
     "noEvents": "Yapılacak bir şey yok 😴",
     "addEvent": "Yeni Etkinlik",
+    "save": "Kaydet",
+    "cancel": "Vazgeç",
     "eventTitle": "Başlık",
     "start": "Başlangıç",
     "end": "Bitiş",
     "privacy": "Görünürlük",
     "repeat": "Tekrar",
+    "recurrence_none": "Tek Seferlik",
+    "recurrence_daily": "Her Gün",
+    "recurrence_weekly": "Her Hafta",
+    "recurrence_monthly": "Her Ay",
+    "recurrence_yearly": "Her Yıl",
+    "family": "Tüm Aile",
+    "private": "Gizli",
+    "weekDays": "Hangi Günler?",
+    "successAdd": "Eklendi",
     "successTask": "Harika! +{points} Puan kazandın 🎉"
   },
   "Pets": {

@@ -52,7 +52,6 @@ const Dialog = ({
   }, [open]);
 
   return (
-    // DÜZELTME: DialogPrimitive.Root EKLENDİ
     <DialogPrimitive.Root open={open} onOpenChange={setOpen} {...props}>
       <DialogContext.Provider value={{ open, setOpen }}>
         {children}
@@ -68,11 +67,8 @@ const DialogContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => {
   const context = React.useContext(DialogContext);
-
-  // Context kontrolü opsiyonel bırakılabilir ama güvenli olması için kalsın
   if (!context) throw new Error("DialogContent must be used within Dialog");
 
-  // Radix UI portal ve overlay mantığını kullanıyoruz
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
@@ -109,6 +105,21 @@ const DialogHeader = ({
 );
 DialogHeader.displayName = "DialogHeader";
 
+// --- EKLENEN KISIM: DialogFooter ---
+const DialogFooter = ({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) => (
+  <div
+    className={cn(
+      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
+      className
+    )}
+    {...props}
+  />
+);
+DialogFooter.displayName = "DialogFooter";
+
 const DialogTitle = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
@@ -141,6 +152,7 @@ export {
   DialogTrigger,
   DialogContent,
   DialogHeader,
+  DialogFooter, // <-- Export'a eklendi
   DialogTitle,
   DialogDescription,
 };

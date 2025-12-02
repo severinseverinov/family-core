@@ -33,7 +33,8 @@ import {
   getFileUrl,
 } from "@/app/actions/vault";
 import { useTranslations } from "next-intl";
-import QRCode from "react-qr-code"; // <-- YENİ EKLENDİ
+import QRCode from "react-qr-code";
+import { useTheme } from "next-themes"; // <-- 1. YENİ EKLENDİ
 
 const ICONS: Record<string, any> = {
   wifi: Wifi,
@@ -45,13 +46,14 @@ const ICONS: Record<string, any> = {
 export function VaultWidget() {
   const t = useTranslations("Vault");
   const tCommon = useTranslations("Common");
+  const { resolvedTheme } = useTheme(); // <-- 2. TEMA BİLGİSİNİ AL
 
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modallar
-  const [isOpen, setIsOpen] = useState(false); // Ekleme Modalı
-  const [isQrOpen, setIsQrOpen] = useState(false); // QR Modalı
+  const [isOpen, setIsOpen] = useState(false);
+  const [isQrOpen, setIsQrOpen] = useState(false);
 
   // State
   const [revealedId, setRevealedId] = useState<string | null>(null);
@@ -88,7 +90,7 @@ export function VaultWidget() {
     }
   };
 
-  // QR Kodu Göster (YENİ FONKSİYON)
+  // QR Kodu Göster
   const handleShowQr = async (item: any) => {
     const res = await revealSecret(item.id);
 
@@ -100,9 +102,7 @@ export function VaultWidget() {
     let valueToEncode = res.secret;
 
     // Eğer Wi-Fi ise, otomatik bağlanma formatına çevir
-    // Format: WIFI:S:SSID;T:WPA;P:PASSWORD;;
     if (item.category === "wifi") {
-      // Not: item.title'ın SSID (Ağ Adı) olduğunu varsayıyoruz
       valueToEncode = `WIFI:S:${item.title};T:WPA;P:${res.secret};;`;
     }
 
@@ -127,6 +127,12 @@ export function VaultWidget() {
     toast.success(tCommon("success"));
     loadItems();
   };
+
+  // --- 3. TEMA RENKLERİNİ BELİRLE ---
+  // Karanlık modda: Arka plan koyu gri (gray-900), Ön plan beyaz
+  // Aydınlık modda: Arka plan beyaz, Ön plan siyah
+  const qrBgColor = resolvedTheme === "dark" ? "#111827" : "#ffffff";
+  const qrFgColor = resolvedTheme === "dark" ? "#ffffff" : "#000000";
 
   return (
     <Card className="h-full flex flex-col border-red-100 bg-red-50/30 dark:bg-red-900/10 dark:border-red-900/30">
@@ -197,12 +203,12 @@ export function VaultWidget() {
                   </div>
 
                   <div className="flex items-center gap-1">
-                    {/* QR Butonu (Sadece metinler için) */}
+                    {/* QR Butonu */}
                     {item.type === "text" && (
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-7 w-7 text-gray-500 hover:text-blue-600"
+                        className="h-7 w-7 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
                         onClick={() => handleShowQr(item)}
                         title="QR"
                       >
@@ -331,7 +337,7 @@ export function VaultWidget() {
           </DialogContent>
         </Dialog>
 
-        {/* QR MODALI (YENİ) */}
+        {/* QR MODALI (GÜNCELLENDİ) */}
         <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
           <DialogContent className="sm:max-w-sm">
             <DialogHeader>
@@ -341,12 +347,22 @@ export function VaultWidget() {
               </DialogTitle>
             </DialogHeader>
             <div className="flex flex-col items-center justify-center p-4 space-y-4">
-              <div className="bg-white p-4 rounded-lg shadow-sm border">
-                <QRCode value={qrData} size={200} />
+              {/* QR Kodunun etrafındaki kutuyu temaya uygun hale getirdik */}
+              <div className="p-4 rounded-lg shadow-sm border bg-white dark:bg-gray-900 dark:border-gray-800">
+                {/* 4. RENKLERİ UYGULA */}
+                <QRCode
+                  value={qrData}
+                  size={200}
+                  bgColor={qrBgColor}
+                  fgColor={qrFgColor}
+                  level="H" // Yüksek hata düzeltme seviyesi (daha iyi okuma için)
+                />
               </div>
               <div className="text-center space-y-1">
                 <p className="font-medium">{qrTitle}</p>
-                <p className="text-xs text-gray-500">{t("qrHelp")}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {t("qrHelp")}
+                </p>
               </div>
             </div>
           </DialogContent>

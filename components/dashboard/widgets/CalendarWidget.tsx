@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { tr, enUS, de } from "date-fns/locale"; // Diğer dilleri de ekledik
+import { tr, enUS, de } from "date-fns/locale";
 import { Plus, Calendar as CalIcon, PawPrint, Repeat } from "lucide-react";
 import { toast } from "sonner";
-import { useTranslations, useLocale } from "next-intl"; // <-- EKLENDİ
+import { useTranslations, useLocale } from "next-intl";
 
 import {
   createEvent,
@@ -27,7 +27,6 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-// ... (WEEKDAYS dizisi sabit kalabilir veya onu da çevirebiliriz ama şimdilik kalsın)
 const WEEKDAYS = [
   { id: 1, label: "Pt" },
   { id: 2, label: "Sa" },
@@ -47,9 +46,9 @@ export function CalendarWidget({
   initialItems,
   initialHolidays,
 }: CalendarWidgetProps) {
-  const t = useTranslations("Calendar"); // <-- Çeviri kancası
+  const t = useTranslations("Calendar");
   const tCommon = useTranslations("Common");
-  const locale = useLocale(); // <-- Aktif dili al (tr, en, de)
+  const locale = useLocale();
 
   const router = useRouter();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -62,7 +61,6 @@ export function CalendarWidget({
   const [frequency, setFrequency] = useState("none");
   const [selectedWeekDays, setSelectedWeekDays] = useState<number[]>([]);
 
-  // Tarih formatı için doğru 'date-fns' locale nesnesini seç
   const dateLocale = locale === "tr" ? tr : locale === "de" ? de : enUS;
 
   const fetchItemsForDate = async (date: Date) => {
@@ -91,7 +89,6 @@ export function CalendarWidget({
     if (res.error) {
       toast.error(res.error);
     } else {
-      // Parametreli çeviri kullanımı
       toast.success(t("successTask", { points }));
       if (selectedDate) fetchItemsForDate(selectedDate);
       router.refresh();
@@ -113,7 +110,7 @@ export function CalendarWidget({
     <Card className="h-full flex flex-col shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-bold text-gray-700 dark:text-gray-200">
-          {t("title")} {/* "Takvim & Görevler" yerine */}
+          {t("title")}
         </CardTitle>
         <Button
           variant="outline"
@@ -127,13 +124,13 @@ export function CalendarWidget({
 
       <CardContent className="flex-1 flex flex-col md:flex-row gap-4 p-4 pt-0">
         {/* SOL: TAKVİM */}
-        <div className="border rounded-xl p-3 flex justify-center bg-white dark:bg-black/20 shadow-sm">
+        <div className="border rounded-xl p-3 flex justify-center bg-white dark:bg-black/20 dark:border-gray-800 shadow-sm">
           <Calendar
             mode="single"
             selected={selectedDate}
             onSelect={setSelectedDate}
             onDayClick={handleDayClick}
-            locale={dateLocale} // Dinamik locale
+            locale={dateLocale}
             className="rounded-md"
             modifiers={{ holiday: holidays.map(h => new Date(h.date)) }}
             modifiersStyles={{
@@ -143,8 +140,8 @@ export function CalendarWidget({
         </div>
 
         {/* SAĞ: LİSTE */}
-        <div className="flex-1 flex flex-col gap-3 p-3 overflow-auto border rounded-xl bg-gray-50 dark:bg-gray-900/50">
-          <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 border-b pb-2 flex justify-between">
+        <div className="flex-1 flex flex-col gap-3 p-3 overflow-auto border rounded-xl bg-gray-50 dark:bg-gray-900/50 dark:border-gray-800">
+          <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 border-b dark:border-gray-700 pb-2 flex justify-between">
             <span>
               {selectedDate
                 ? format(selectedDate, "d MMMM yyyy, EEEE", {
@@ -160,7 +157,7 @@ export function CalendarWidget({
           </h4>
 
           {selectedDate && getHolidayForDate(selectedDate) && (
-            <div className="p-2 bg-red-100 border border-red-200 rounded text-red-800 text-xs font-bold flex items-center gap-2">
+            <div className="p-2 bg-red-100 border border-red-200 dark:bg-red-900/20 dark:border-red-900 dark:text-red-300 rounded text-red-800 text-xs font-bold flex items-center gap-2">
               <span>🎉</span>
               {getHolidayForDate(selectedDate)?.localName}
             </div>
@@ -171,9 +168,10 @@ export function CalendarWidget({
             {items
               .filter(i => i.type === "event")
               .map(event => (
+                // TEMA DÜZELTMESİ: bg-white -> dark:bg-gray-900, text colors
                 <div
                   key={event.id}
-                  className="flex items-center gap-2 p-2 bg-white rounded border border-l-4 border-l-blue-500 shadow-sm"
+                  className="flex items-center gap-2 p-2 bg-white dark:bg-gray-900 rounded border dark:border-gray-800 border-l-4 border-l-blue-500 shadow-sm"
                 >
                   <CalIcon className="h-4 w-4 text-blue-500" />
                   <div className="flex-1">
@@ -183,11 +181,11 @@ export function CalendarWidget({
                       </p>
                       {event.frequency && event.frequency !== "none" && (
                         <span title={t("repeat")}>
-                          <Repeat className="h-3 w-3 text-gray-400" />
+                          <Repeat className="h-3 w-3 text-gray-400 dark:text-gray-500" />
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-gray-500">
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
                       {event.time
                         ? format(new Date(event.time), "HH:mm")
                         : "Tüm Gün"}
@@ -200,12 +198,13 @@ export function CalendarWidget({
             {items
               .filter(i => i.type === "task")
               .map(task => (
+                // TEMA DÜZELTMESİ: Arka plan ve kenarlık renkleri
                 <div
                   key={task.id}
                   className={`flex items-center justify-between p-2 rounded border shadow-sm transition-all ${
                     task.is_completed
-                      ? "bg-green-50 border-green-200 opacity-60"
-                      : "bg-white border-orange-200 hover:border-orange-300"
+                      ? "bg-green-50 border-green-200 opacity-60 dark:bg-green-900/20 dark:border-green-900"
+                      : "bg-white border-orange-200 hover:border-orange-300 dark:bg-gray-900 dark:border-orange-900 dark:hover:border-orange-700"
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -220,7 +219,7 @@ export function CalendarWidget({
                       <p
                         className={`text-xs font-bold ${
                           task.is_completed
-                            ? "line-through text-gray-500"
+                            ? "line-through text-gray-500 dark:text-gray-400"
                             : "text-gray-800 dark:text-gray-200"
                         }`}
                       >
@@ -230,7 +229,7 @@ export function CalendarWidget({
                         <span className="text-[10px] font-semibold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 px-1.5 py-0.5 rounded">
                           {task.pet_name}
                         </span>
-                        <span className="text-[10px] text-gray-500">
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400">
                           {task.is_completed
                             ? `✅ ${task.completed_by}`
                             : `+${task.points} P`}
@@ -242,7 +241,7 @@ export function CalendarWidget({
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-7 px-2 text-xs text-orange-600 hover:bg-orange-100 hover:text-orange-700"
+                      className="h-7 px-2 text-xs text-orange-600 hover:bg-orange-100 hover:text-orange-700 dark:hover:bg-orange-900/30"
                       onClick={() =>
                         handleCompleteTask(task.routine_id!, task.points!)
                       }
@@ -301,7 +300,7 @@ export function CalendarWidget({
                 <label className="text-xs font-medium">{t("eventTitle")}</label>
                 <input
                   name="title"
-                  className="w-full border p-2 rounded text-sm"
+                  className="w-full border p-2 rounded text-sm dark:bg-gray-800 dark:border-gray-700"
                   required
                 />
               </div>
@@ -313,7 +312,7 @@ export function CalendarWidget({
                     type="time"
                     name="start_time_only"
                     required
-                    className="w-full border p-2 rounded text-sm"
+                    className="w-full border p-2 rounded text-sm dark:bg-gray-800 dark:border-gray-700"
                     defaultValue="09:00"
                   />
                 </div>
@@ -323,7 +322,7 @@ export function CalendarWidget({
                     type="time"
                     name="end_time_only"
                     required
-                    className="w-full border p-2 rounded text-sm"
+                    className="w-full border p-2 rounded text-sm dark:bg-gray-800 dark:border-gray-700"
                     defaultValue="10:00"
                   />
                 </div>
@@ -334,7 +333,7 @@ export function CalendarWidget({
                   <label className="text-xs font-medium">{t("privacy")}</label>
                   <select
                     name="privacy_level"
-                    className="w-full border p-2 rounded text-sm bg-background"
+                    className="w-full border p-2 rounded text-sm bg-background dark:bg-gray-800 dark:border-gray-700"
                   >
                     <option value="family">{t("family")}</option>
                     <option value="private">{t("private")}</option>
@@ -344,7 +343,7 @@ export function CalendarWidget({
                   <label className="text-xs font-medium">{t("repeat")}</label>
                   <select
                     name="frequency"
-                    className="w-full border p-2 rounded text-sm bg-background"
+                    className="w-full border p-2 rounded text-sm bg-background dark:bg-gray-800 dark:border-gray-700"
                     value={frequency}
                     onChange={e => setFrequency(e.target.value)}
                   >
@@ -358,8 +357,8 @@ export function CalendarWidget({
               </div>
 
               {frequency === "weekly" && (
-                <div className="space-y-2 bg-gray-50 p-2 rounded border border-dashed">
-                  <label className="text-xs font-medium text-gray-500">
+                <div className="space-y-2 bg-gray-50 p-2 rounded border border-dashed dark:bg-gray-800 dark:border-gray-700">
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
                     {t("weekDays")}
                   </label>
                   <div className="flex justify-between">
@@ -371,7 +370,7 @@ export function CalendarWidget({
                         className={`w-8 h-8 rounded-full text-xs font-medium transition-all ${
                           selectedWeekDays.includes(day.id)
                             ? "bg-blue-600 text-white shadow-md"
-                            : "bg-white border text-gray-600"
+                            : "bg-white border text-gray-600 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
                         }`}
                       >
                         {day.label}

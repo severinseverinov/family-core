@@ -2,7 +2,7 @@
   "Navbar": {
     "login": "Anmelden",
     "dashboard": "Instrumententafel",
-    "settings": "Einstellungen",
+    "settings": "Einstellungen & Familie",
     "logout": "Abmelden"
   },
   "Common": {
@@ -18,13 +18,20 @@
   },
   "Dashboard": {
     "welcome": "Willkommen zurück, {name} 👋",
-    "subtitle": "Ihr Familienstatus auf einen Blick. (Standort: {country})"
+    "subtitle": "Ihr Familienstatus auf einen Blick. (Standort: {country})",
+    "calendar": "Kalender & Ereignisse",
+    "kitchen": "Küche & Vorrat",
+    "pets": "Haustiere",
+    "gamification": "Punkte & Belohnungen",
+    "vault": "Familientresor"
   },
   "Calendar": {
     "title": "Kalender & Aufgaben",
     "today": "Heute",
     "noEvents": "Nichts zu tun 😴",
     "addEvent": "Neues Ereignis",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
     "eventTitle": "Titel",
     "start": "Start",
     "end": "Ende",
@@ -68,7 +75,8 @@
     "spent": "Ausgegeben",
     "limit": "Limit",
     "empty": "Kühlschrank leer.",
-    "tabAll": "Alle"
+    "tabAll": "Alle",
+    "scanReceiptBtn": "Beleg scannen & Lager hinzufügen"
   },
   "Gamification": {
     "title": "Punkte & Belohnungen",

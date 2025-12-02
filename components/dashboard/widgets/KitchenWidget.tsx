@@ -10,7 +10,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   ShoppingBag,
@@ -31,7 +30,8 @@ import {
   CheckSquare,
   Square,
   Maximize2,
-  X,
+  Share2,
+  QrCode,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -47,6 +47,8 @@ import {
   clearCompletedShoppingItems,
 } from "@/app/actions/kitchen";
 import { useTranslations, useLocale } from "next-intl";
+import QRCode from "react-qr-code";
+import { useTheme } from "next-themes";
 
 const CATEGORY_ICONS: Record<string, any> = {
   gıda: Utensils,
@@ -60,8 +62,10 @@ const CATEGORY_ICONS: Record<string, any> = {
   genel: Package,
   diğer: ShoppingBag,
 };
+
 const getCategoryIcon = (category: string) => {
   const normalized = category?.toLowerCase().trim() || "diğer";
+  if (CATEGORY_ICONS[normalized]) return CATEGORY_ICONS[normalized];
   const key = Object.keys(CATEGORY_ICONS).find(k => normalized.includes(k));
   return key ? CATEGORY_ICONS[key] : CATEGORY_ICONS["diğer"];
 };
@@ -70,8 +74,8 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
   const t = useTranslations("Kitchen");
   const tCommon = useTranslations("Common");
   const locale = useLocale();
+  const { resolvedTheme } = useTheme();
 
-  // Ana Sekme: 'inventory' | 'shopping_list'
   const [mainTab, setMainTab] = useState<"inventory" | "shopping_list">(
     "inventory"
   );
@@ -85,10 +89,11 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
   const [isScanning, setIsScanning] = useState(false);
   const [isManualOpen, setIsManualOpen] = useState(false);
   const [isBudgetOpen, setIsBudgetOpen] = useState(false);
-  const [isShoppingModeOpen, setIsShoppingModeOpen] = useState(false); // Büyük ekran modu
+  const [isShoppingModeOpen, setIsShoppingModeOpen] = useState(false);
+  const [isQrOpen, setIsQrOpen] = useState(false);
 
-  // Envanter Filtreleme
   const [activeInvTab, setActiveInvTab] = useState("ALL");
+  const [qrData, setQrData] = useState("");
 
   const isAdmin = ["owner", "admin"].includes(userRole);
 
@@ -107,7 +112,20 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     loadData();
   }, []);
 
-  // --- ENVANTER MANTIKLARI ---
+  const handleShareList = () => {
+    const activeItems = shoppingList.filter(i => !i.is_checked);
+
+    if (activeItems.length === 0) {
+      toast.error(t("empty"));
+      return;
+    }
+
+    const listText = activeItems.map(i => `- ${i.product_name}`).join("\n");
+
+    setQrData(listText);
+    setIsQrOpen(true);
+  };
+
   const groupedInventory = useMemo(() => {
     const groups: Record<string, any[]> = {};
     inventory.forEach(item => {
@@ -128,12 +146,23 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     () => ["ALL", ...Object.keys(groupedInventory)],
     [groupedInventory]
   );
+
   const displayedInventory = useMemo(() => {
     if (activeInvTab === "ALL") return groupedInventory;
     return { [activeInvTab]: groupedInventory[activeInvTab] };
   }, [activeInvTab, groupedInventory]);
 
-  // --- HANDLERLAR ---
+  const percentage = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
+  const barColor =
+    percentage > 90
+      ? "bg-red-500"
+      : percentage > 70
+      ? "bg-yellow-500"
+      : "bg-green-500";
+
+  const qrBgColor = resolvedTheme === "dark" ? "#111827" : "#ffffff";
+  const qrFgColor = resolvedTheme === "dark" ? "#ffffff" : "#000000";
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -165,14 +194,30 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     }
   };
 
+  const handleBudgetUpdate = async (fd: FormData) => {
+    const amount = parseFloat(fd.get("budget") as string);
+    const res = await updateBudget(amount);
+    if (res?.error) toast.error(tCommon("error"));
+    else {
+      toast.success(tCommon("success"));
+      setIsBudgetOpen(false);
+      loadData();
+    }
+  };
+
   const handleQuantityChange = async (id: string, change: number) => {
     setInventory(prev =>
       prev.map(i =>
         i.id === id ? { ...i, quantity: Math.max(0, i.quantity + change) } : i
       )
     );
-    await updateItemQuantity(id, change);
-    loadData();
+    const res = await updateItemQuantity(id, change);
+    if (res?.error) {
+      toast.error(res.error);
+      loadData();
+    } else {
+      loadData();
+    }
   };
 
   const handleDeleteInventory = async (id: string) => {
@@ -181,11 +226,12 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     loadData();
   };
 
-  // --- ALIŞVERİŞ LİSTESİ HANDLERLARI ---
   const handleAddShoppingItem = async (fd: FormData) => {
     const res = await addToShoppingList(fd);
-    if (res?.error) toast.error(tCommon("error"));
-    else {
+    if (res?.error) {
+      // GÜNCELLEME: Sunucudan gelen özel hata mesajını göster
+      toast.error(res.error);
+    } else {
       toast.success(tCommon("success"));
       loadData();
     }
@@ -195,7 +241,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     id: string,
     currentStatus: boolean
   ) => {
-    // Optimistic Update
     setShoppingList(prev =>
       prev.map(i => (i.id === id ? { ...i, is_checked: !currentStatus } : i))
     );
@@ -214,7 +259,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     loadData();
   };
 
-  // İsim Gösterimi (Dil Desteği)
   const getProductName = (item: any) =>
     locale !== "tr" && item.product_name_en
       ? item.product_name_en
@@ -222,17 +266,16 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
 
   return (
     <Card className="h-full flex flex-col border-orange-100 bg-orange-50/30 dark:bg-orange-900/10 dark:border-orange-900/30 shadow-sm relative">
-      {/* ÜST BAŞLIK VE SEKME SEÇİMİ */}
       <CardHeader className="pb-2 flex flex-col gap-3 space-y-0">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between w-full">
           <div className="flex gap-2 bg-white/50 p-1 rounded-lg dark:bg-gray-800/50">
             <button
               onClick={() => setMainTab("inventory")}
               className={cn(
                 "px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-2 transition-all",
                 mainTab === "inventory"
-                  ? "bg-white shadow text-orange-600"
-                  : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  ? "bg-white shadow text-orange-600 dark:bg-gray-700 dark:text-orange-400"
+                  : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
               )}
             >
               <ShoppingBag className="h-3.5 w-3.5" /> {t("title")}
@@ -242,23 +285,22 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
               className={cn(
                 "px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-2 transition-all",
                 mainTab === "shopping_list"
-                  ? "bg-white shadow text-blue-600"
-                  : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  ? "bg-white shadow text-blue-600 dark:bg-gray-700 dark:text-blue-400"
+                  : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
               )}
             >
-              <ShoppingCart className="h-3.5 w-3.5" /> Alışveriş (
+              <ShoppingCart className="h-3.5 w-3.5" /> List (
               {shoppingList.filter(i => !i.is_checked).length})
             </button>
           </div>
 
-          {/* Butonlar (Sadece Inventory'de) */}
           {mainTab === "inventory" && (
             <div className="flex gap-1">
               {isAdmin && (
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-8 w-8 text-orange-600"
+                  className="h-8 w-8 text-orange-600 hover:bg-orange-100 dark:text-orange-400 dark:hover:bg-orange-900/30"
                   onClick={() => setIsBudgetOpen(true)}
                 >
                   <Wallet className="h-4 w-4" />
@@ -268,7 +310,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-8 w-8"
+                  className="h-8 w-8 hover:bg-orange-100 dark:hover:bg-orange-900/30"
                   onClick={() => setIsManualOpen(true)}
                 >
                   <Plus className="h-4 w-4" />
@@ -276,24 +318,34 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
               )}
             </div>
           )}
-          {/* Butonlar (Sadece Shopping List'de) */}
           {mainTab === "shopping_list" && (
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8 text-blue-600"
-              onClick={() => setIsShoppingModeOpen(true)}
-              title="Alışveriş Modu"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </Button>
+            <div className="flex gap-1">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
+                onClick={handleShareList}
+                title={t("shareList")}
+              >
+                <Share2 className="h-4 w-4" />
+              </Button>
+
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-blue-600 dark:text-blue-400"
+                onClick={() => setIsShoppingModeOpen(true)}
+                title="Alışveriş Modu"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
+            </div>
           )}
         </div>
 
-        {/* Bütçe Barı (Sadece Inventory'de) */}
         {mainTab === "inventory" && budget > 0 && (
           <div className="w-full space-y-1">
-            <div className="flex justify-between text-[10px] font-medium text-gray-500">
+            <div className="flex justify-between text-[10px] font-medium text-gray-500 dark:text-gray-400">
               <span>
                 {t("spent")}:{" "}
                 {spent.toLocaleString(locale === "tr" ? "tr-TR" : "de-DE")}₺
@@ -306,23 +358,23 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
             <div className="h-2 w-full bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
               <div
                 className={`h-full transition-all duration-500 ${
-                  budget > 0 && spent / budget > 0.9
+                  percentage > 90
                     ? "bg-red-500"
+                    : percentage > 70
+                    ? "bg-yellow-500"
                     : "bg-green-500"
                 }`}
-                style={{ width: `${Math.min((spent / budget) * 100, 100)}%` }}
+                style={{ width: `${percentage}%` }}
               />
             </div>
           </div>
         )}
       </CardHeader>
 
-      {/* --- İÇERİK ALANI --- */}
       <CardContent className="flex-1 overflow-hidden flex flex-col gap-3 p-4 pt-0">
-        {/* 1. ENVANTER GÖRÜNÜMÜ */}
+        {/* ENVANTER İÇERİĞİ */}
         {mainTab === "inventory" && (
           <>
-            {/* Alt Sekmeler (Kategoriler) */}
             {inventory.length > 0 && (
               <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                 {invTabs.map(tab => (
@@ -330,10 +382,10 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                     key={tab}
                     onClick={() => setActiveInvTab(tab)}
                     className={cn(
-                      "px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap border",
+                      "px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap border transition-colors",
                       activeInvTab === tab
-                        ? "bg-orange-600 text-white"
-                        : "bg-white text-gray-600"
+                        ? "bg-orange-600 text-white border-orange-600 dark:bg-orange-600"
+                        : "bg-white text-gray-600 border-gray-200 hover:bg-orange-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-700"
                     )}
                   >
                     {tab === "ALL" ? t("tabAll") : tab}
@@ -342,18 +394,18 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
               </div>
             )}
 
-            {/* Liste */}
             <div className="flex-1 overflow-auto space-y-4 pr-1 scrollbar-thin">
               {loading ? (
                 <p className="text-xs text-center text-gray-400 py-4">
                   {tCommon("loading")}
                 </p>
               ) : inventory.length === 0 ? (
-                <div className="text-center py-8 text-gray-400 text-xs">
+                <div className="text-center py-8 text-gray-400 text-xs flex flex-col items-center">
+                  <ShoppingBag className="h-8 w-8 mb-2 opacity-20" />
                   <p>{t("empty")}</p>
                 </div>
               ) : (
-                Object.entries(displayedGroups as Record<string, any[]>).map(
+                Object.entries(displayedInventory as Record<string, any[]>).map(
                   ([category, categoryItems]) => {
                     const Icon = getCategoryIcon(category);
                     if (!categoryItems) return null;
@@ -369,22 +421,22 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                           {categoryItems.map(item => (
                             <div
                               key={item.id}
-                              className="flex items-center justify-between p-2 bg-white rounded-lg border shadow-sm dark:bg-gray-900"
+                              className="flex items-center justify-between p-2 bg-white rounded-lg border shadow-sm dark:bg-gray-900 dark:border-gray-800 group hover:border-orange-200 dark:hover:border-orange-900 transition-colors"
                             >
                               <div className="flex items-center gap-3">
-                                <div className="p-1.5 bg-orange-50 rounded-md text-orange-600">
+                                <div className="p-1.5 bg-orange-50 rounded-md dark:bg-orange-900/20 text-orange-600 dark:text-orange-400">
                                   <Icon className="h-4 w-4" />
                                 </div>
                                 <div>
-                                  <p className="text-sm font-medium">
+                                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
                                     {getProductName(item)}
                                   </p>
-                                  <div className="flex gap-2 text-[10px] text-gray-500">
+                                  <div className="flex gap-2 text-[10px] text-gray-500 dark:text-gray-400 capitalize">
                                     <span>
                                       {item.quantity} {item.unit}
                                     </span>
                                     {item.last_price > 0 && (
-                                      <span className="text-green-600">
+                                      <span className="text-green-600 dark:text-green-400">
                                         {item.last_price}₺
                                       </span>
                                     )}
@@ -396,7 +448,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                                   onClick={() =>
                                     handleQuantityChange(item.id, -1)
                                   }
-                                  className="w-6 h-6 rounded-full bg-gray-100 hover:bg-red-100 hover:text-red-600 text-xs"
+                                  className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 hover:bg-red-100 hover:text-red-600 text-gray-600 text-xs dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-red-900/50 dark:hover:text-red-400"
                                 >
                                   <Minus className="h-3 w-3" />
                                 </button>
@@ -405,7 +457,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                                     onClick={() =>
                                       handleQuantityChange(item.id, 1)
                                     }
-                                    className="w-6 h-6 rounded-full bg-gray-100 hover:bg-green-100 hover:text-green-600 text-xs"
+                                    className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 hover:bg-green-100 hover:text-green-600 text-gray-600 text-xs dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-green-900/50 dark:hover:text-green-400"
                                   >
                                     <Plus className="h-3 w-3" />
                                   </button>
@@ -415,7 +467,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                                     onClick={() =>
                                       handleDeleteInventory(item.id)
                                     }
-                                    className="text-gray-300 hover:text-red-500 p-1"
+                                    className="text-gray-300 hover:text-red-500 p-1 dark:text-gray-600 dark:hover:text-red-400"
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
                                   </button>
@@ -431,8 +483,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
               )}
             </div>
 
-            {/* Fiş Yükleme */}
-            <div className="mt-auto pt-2 border-t border-orange-100">
+            <div className="mt-auto pt-2 border-t border-orange-100 dark:border-orange-900/30">
               <div className="relative group">
                 <input
                   type="file"
@@ -443,7 +494,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                   disabled={isScanning}
                 />
                 <Button
-                  className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                  className="w-full bg-orange-600 hover:bg-orange-700 text-white shadow-sm transition-all group-active:scale-[0.98]"
                   disabled={isScanning}
                 >
                   {isScanning ? (
@@ -462,16 +513,25 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
           </>
         )}
 
-        {/* 2. ALIŞVERİŞ LİSTESİ GÖRÜNÜMÜ */}
+        {/* ALIŞVERİŞ LİSTESİ İÇERİĞİ */}
         {mainTab === "shopping_list" && (
           <div className="flex flex-col h-full">
-            {/* Hızlı Ekle */}
-            <form action={handleAddShoppingItem} className="flex gap-2 mb-4">
+            <form
+              action={async fd => {
+                await handleAddShoppingItem(fd);
+                // Formu sıfırla (Manuel reset)
+                (
+                  document.getElementById("shopInput") as HTMLInputElement
+                ).value = "";
+              }}
+              className="flex gap-2 mb-4"
+            >
               <Input
+                id="shopInput"
                 name="name"
                 placeholder="Eklenecek ürün..."
                 required
-                className="h-9 text-sm"
+                className="h-9 text-sm dark:bg-gray-800 dark:border-gray-700"
               />
               <Button
                 type="submit"
@@ -482,7 +542,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
               </Button>
             </form>
 
-            {/* Liste */}
             <div className="flex-1 overflow-auto space-y-2 pr-1">
               {shoppingList.length === 0 && (
                 <div className="text-center text-xs text-gray-400 py-6">
@@ -495,8 +554,8 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                   className={cn(
                     "flex items-center justify-between p-2 rounded-lg border transition-all",
                     item.is_checked
-                      ? "bg-gray-50 border-gray-100 opacity-60"
-                      : "bg-white border-blue-100 shadow-sm"
+                      ? "bg-gray-50 border-gray-100 opacity-60 dark:bg-gray-800/50 dark:border-gray-800"
+                      : "bg-white border-blue-100 shadow-sm dark:bg-gray-900 dark:border-gray-800"
                   )}
                 >
                   <div
@@ -508,12 +567,14 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                     {item.is_checked ? (
                       <CheckSquare className="h-5 w-5 text-green-500" />
                     ) : (
-                      <Square className="h-5 w-5 text-gray-400" />
+                      <Square className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                     )}
                     <span
                       className={cn(
                         "text-sm",
-                        item.is_checked && "line-through text-gray-500"
+                        item.is_checked
+                          ? "line-through text-gray-500 dark:text-gray-500"
+                          : "text-gray-900 dark:text-gray-100"
                       )}
                     >
                       {item.product_name}
@@ -521,7 +582,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                   </div>
                   <button
                     onClick={() => handleDeleteShoppingItem(item.id)}
-                    className="text-gray-300 hover:text-red-500 p-1"
+                    className="text-gray-300 hover:text-red-500 p-1 dark:text-gray-600 dark:hover:text-red-400"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -529,12 +590,11 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
               ))}
             </div>
 
-            {/* Alt Buton */}
             {shoppingList.some(i => i.is_checked) && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="mt-2 text-xs text-red-500 hover:bg-red-50"
+                className="mt-2 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                 onClick={handleClearCompleted}
               >
                 Tamamlananları Temizle
@@ -543,63 +603,70 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
           </div>
         )}
 
-        {/* --- MODALLAR --- */}
-
-        {/* Manuel Ekle (Envanter) */}
         <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{t("manualAdd")}</DialogTitle>
             </DialogHeader>
             <form action={handleManualAdd} className="space-y-4">
-              <Input name="name" placeholder={t("productName")} required />
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  name="quantity"
-                  type="number"
-                  step="0.1"
-                  placeholder="1"
-                  required
-                />
-                <select
-                  name="unit"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="adet">Adet</option>
-                  <option value="kg">Kg</option>
-                  <option value="lt">Litre</option>
-                </select>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">
+                  {t("productName")}
+                </label>
+                <Input name="name" required />
               </div>
-              <Input
-                list="categories"
-                name="category"
-                placeholder="Kategori"
-                required
-              />
-              <datalist id="categories">
-                <option value="Gıda" />
-                <option value="Temizlik" />
-              </datalist>
-              <Button type="submit" className="w-full bg-orange-600">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">{t("amount")}</label>
+                  <Input name="quantity" type="number" step="0.1" required />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">{t("unit")}</label>
+                  <select
+                    name="unit"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700"
+                  >
+                    <option value="adet">Adet</option>
+                    <option value="kg">Kg</option>
+                    <option value="litre">Litre</option>
+                    <option value="paket">Paket</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">{t("price")}</label>
+                <Input name="price" type="number" step="0.01" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">{t("category")}</label>
+                <Input list="categories" name="category" required />
+                <datalist id="categories">
+                  <option value="Gıda" />
+                  <option value="Temizlik" />
+                </datalist>
+              </div>
+              <Button type="submit" className="w-full bg-orange-600 text-white">
                 {tCommon("save")}
               </Button>
             </form>
           </DialogContent>
         </Dialog>
 
-        {/* Bütçe */}
         <Dialog open={isBudgetOpen} onOpenChange={setIsBudgetOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{t("budget")}</DialogTitle>
             </DialogHeader>
             <form action={handleBudgetUpdate} className="space-y-4">
-              <Input
-                name="budget"
-                type="number"
-                defaultValue={budget}
-                required
-              />
+              <div className="space-y-1">
+                <label className="text-xs font-medium">{t("limit")}</label>
+                <Input
+                  name="budget"
+                  type="number"
+                  defaultValue={budget}
+                  required
+                />
+              </div>
               <Button type="submit" className="w-full">
                 {tCommon("update")}
               </Button>
@@ -607,7 +674,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
           </DialogContent>
         </Dialog>
 
-        {/* ALIŞVERİŞ MODU (BÜYÜK EKRAN) */}
         <Dialog open={isShoppingModeOpen} onOpenChange={setIsShoppingModeOpen}>
           <DialogContent className="sm:max-w-md h-[80vh] flex flex-col">
             <DialogHeader>
@@ -628,8 +694,8 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                   className={cn(
                     "flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer",
                     item.is_checked
-                      ? "bg-green-50 border-green-200"
-                      : "bg-white border-gray-200"
+                      ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-900"
+                      : "bg-white border-gray-200 dark:bg-gray-900 dark:border-gray-700"
                   )}
                   onClick={() =>
                     handleToggleShoppingItem(item.id, item.is_checked)
@@ -638,12 +704,14 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                   {item.is_checked ? (
                     <CheckSquare className="h-8 w-8 text-green-600" />
                   ) : (
-                    <Square className="h-8 w-8 text-gray-300" />
+                    <Square className="h-8 w-8 text-gray-300 dark:text-gray-600" />
                   )}
                   <span
                     className={cn(
                       "text-lg font-medium",
-                      item.is_checked && "line-through text-gray-400"
+                      item.is_checked
+                        ? "line-through text-gray-400 dark:text-gray-500"
+                        : "text-gray-900 dark:text-gray-100"
                     )}
                   >
                     {item.product_name}
@@ -651,14 +719,41 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                 </div>
               ))}
             </div>
-            <DialogFooter className="sm:justify-center">
+            <div className="flex justify-center mt-auto pt-2">
               <Button
-                className="w-full bg-blue-600 h-12 text-lg"
+                className="w-full bg-blue-600 h-12 text-lg text-white"
                 onClick={() => setIsShoppingModeOpen(false)}
               >
                 Kapat
               </Button>
-            </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* QR MODALI (YENİ) */}
+        <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-center flex items-center justify-center gap-2">
+                <QrCode className="h-5 w-5" />
+                {t("qrTitle")}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col items-center justify-center p-4 space-y-4">
+              <div className="bg-white p-4 rounded-lg shadow-sm border dark:bg-gray-900 dark:border-gray-800">
+                <QRCode
+                  value={qrData}
+                  size={200}
+                  bgColor={qrBgColor}
+                  fgColor={qrFgColor}
+                />
+              </div>
+              <div className="text-center space-y-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {t("qrHelp")}
+                </p>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </CardContent>
