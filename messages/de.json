@@ -97,6 +97,8 @@
     "btnEncrypt": "Verschlüsseln & Speichern",
     "btnUpload": "Hochladen & Speichern",
     "viewFile": "Datei anzeigen ↗",
-    "empty": "Tresor leer oder unbefugt."
+    "empty": "Tresor leer oder unbefugt.",
+    "qrTitle": "QR-Code",
+    "qrHelp": "Scannen Sie mit Ihrer Kamera, um zu teilen oder zu verbinden."
   }
 }

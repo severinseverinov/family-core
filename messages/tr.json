@@ -88,6 +88,8 @@
     "btnEncrypt": "Şifrele ve Kaydet",
     "btnUpload": "Yükle ve Sakla",
     "viewFile": "Dosyayı Görüntüle ↗",
-    "empty": "Kasa boş veya yetkiniz yok."
+    "empty": "Kasa boş veya yetkiniz yok.",
+    "qrTitle": "QR Kodu",
+    "qrHelp": "Kameranızla okutarak paylaşın veya bağlanın."
   }
 }
