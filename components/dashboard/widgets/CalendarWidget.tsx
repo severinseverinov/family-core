@@ -242,41 +242,36 @@ export function CalendarWidget({
             onDayClick={handleDayClick}
             locale={dateLocale}
             className="rounded-md"
-            // GÜN KUTUCUĞU TASARIMI (FLEX COLUMN)
-            components={{
-              DayContent: props => {
-                const dayStr = format(props.date, "yyyy-MM-dd");
-                const weatherIndex = weather?.daily?.time
-                  ? weather.daily.time.indexOf(dayStr)
-                  : -1;
-                let weatherInfo = null;
+            // YENİ KULLANIM: renderDay prop'u
+            renderDay={date => {
+              const dayStr = format(date, "yyyy-MM-dd");
+              const weatherIndex = weather?.daily?.time
+                ? weather.daily.time.indexOf(dayStr)
+                : -1;
+              let weatherInfo = null;
 
-                if (weatherIndex > -1 && weather?.daily) {
-                  weatherInfo = getWeatherIcon(
-                    weather.daily.weather_code[weatherIndex]
-                  );
-                }
-
-                return (
-                  <div className="w-full h-full flex flex-col items-center justify-center pt-1">
-                    {/* Tarih Sayısı */}
-                    <span className="text-sm font-medium leading-none">
-                      {props.date.getDate()}
-                    </span>
-                    {/* Hava Durumu İkonu */}
-                    {weatherInfo ? (
-                      <div className="mt-1">
-                        <weatherInfo.icon
-                          className={`h-3 w-3 ${weatherInfo.color}`}
-                        />
-                      </div>
-                    ) : (
-                      // Boşluk tutucu (Hizalama bozulmasın diye)
-                      <div className="h-3 w-3 mt-1"></div>
-                    )}
-                  </div>
+              if (weatherIndex > -1 && weather?.daily) {
+                weatherInfo = getWeatherIcon(
+                  weather.daily.weather_code[weatherIndex]
                 );
-              },
+              }
+
+              return (
+                <div className="w-full h-full flex flex-col items-center justify-center pt-1">
+                  <span className="text-sm font-medium leading-none">
+                    {date.getDate()}
+                  </span>
+                  {weatherInfo ? (
+                    <div className="mt-1">
+                      <weatherInfo.icon
+                        className={`h-3 w-3 ${weatherInfo.color}`}
+                      />
+                    </div>
+                  ) : (
+                    <div className="h-3 w-3 mt-1"></div>
+                  )}
+                </div>
+              );
             }}
             modifiers={{ holiday: holidays.map(h => new Date(h.date)) }}
             modifiersStyles={{

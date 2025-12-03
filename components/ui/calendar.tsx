@@ -1,15 +1,21 @@
-"use client"
+"use client";
 
-import * as React from "react"
+import * as React from "react";
 import {
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-} from "lucide-react"
-import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
+} from "lucide-react";
+import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker";
 
-import { cn } from "@/lib/utils"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils";
+import { Button, buttonVariants } from "@/components/ui/button";
+
+// Yeni bir prop ekledik: renderDay (Opsiyonel)
+export type CalendarProps = React.ComponentProps<typeof DayPicker> & {
+  buttonVariant?: React.ComponentProps<typeof Button>["variant"];
+  renderDay?: (date: Date) => React.ReactNode; // <-- Yeni özellik
+};
 
 function Calendar({
   className,
@@ -19,11 +25,10 @@ function Calendar({
   buttonVariant = "ghost",
   formatters,
   components,
+  renderDay, // <-- Bunu alıyoruz
   ...props
-}: React.ComponentProps<typeof DayPicker> & {
-  buttonVariant?: React.ComponentProps<typeof Button>["variant"]
-}) {
-  const defaultClassNames = getDefaultClassNames()
+}: CalendarProps) {
+  const defaultClassNames = getDefaultClassNames();
 
   return (
     <DayPicker
@@ -36,7 +41,7 @@ function Calendar({
       )}
       captionLayout={captionLayout}
       formatters={{
-        formatMonthDropdown: (date) =>
+        formatMonthDropdown: date =>
           date.toLocaleString("default", { month: "short" }),
         ...formatters,
       }}
@@ -136,29 +141,43 @@ function Calendar({
               className={cn(className)}
               {...props}
             />
-          )
+          );
         },
         Chevron: ({ className, orientation, ...props }) => {
           if (orientation === "left") {
             return (
               <ChevronLeftIcon className={cn("size-4", className)} {...props} />
-            )
+            );
           }
-
           if (orientation === "right") {
             return (
               <ChevronRightIcon
                 className={cn("size-4", className)}
                 {...props}
               />
-            )
+            );
           }
-
           return (
             <ChevronDownIcon className={cn("size-4", className)} {...props} />
-          )
+          );
         },
-        DayButton: CalendarDayButton,
+        // DayButton bileşenine renderDay fonksiyonunu prop olarak geçiriyoruz
+        // Ancak DayButton DayPicker'dan gelen propları alır.
+        // Burada trick yapıp children'ı ezeceğiz.
+        DayButton: dayButtonProps => {
+          // Eğer dışarıdan renderDay geldiyse onu kullan, yoksa varsayılan günü göster
+          const content = renderDay
+            ? renderDay(dayButtonProps.day.date)
+            : dayButtonProps.day.date.getDate();
+
+          // CalendarDayButton'ı çağırırken children yerine content'i basıyoruz gibi düşünebiliriz
+          // Ancak CalendarDayButton 'Button' render ediyor ve children'ı props'tan almıyor olabilir mi?
+          // react-day-picker v9'da DayButton children render eder.
+
+          return (
+            <CalendarDayButton {...dayButtonProps}>{content}</CalendarDayButton>
+          );
+        },
         WeekNumber: ({ children, ...props }) => {
           return (
             <td {...props}>
@@ -166,27 +185,28 @@ function Calendar({
                 {children}
               </div>
             </td>
-          )
+          );
         },
         ...components,
       }}
       {...props}
     />
-  )
+  );
 }
 
 function CalendarDayButton({
   className,
   day,
   modifiers,
+  children, // <-- Children eklendi
   ...props
 }: React.ComponentProps<typeof DayButton>) {
-  const defaultClassNames = getDefaultClassNames()
+  const defaultClassNames = getDefaultClassNames();
 
-  const ref = React.useRef<HTMLButtonElement>(null)
+  const ref = React.useRef<HTMLButtonElement>(null);
   React.useEffect(() => {
-    if (modifiers.focused) ref.current?.focus()
-  }, [modifiers.focused])
+    if (modifiers.focused) ref.current?.focus();
+  }, [modifiers.focused]);
 
   return (
     <Button
@@ -209,8 +229,11 @@ function CalendarDayButton({
         className
       )}
       {...props}
-    />
-  )
+    >
+      {/* Varsayılan date.getDate() yerine gelen children'ı render et */}
+      {children}
+    </Button>
+  );
 }
 
-export { Calendar, CalendarDayButton }
+export { Calendar, CalendarDayButton };
