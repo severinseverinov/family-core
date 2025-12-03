@@ -11,10 +11,9 @@ import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
 
-// Yeni bir prop ekledik: renderDay (Opsiyonel)
 export type CalendarProps = React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>["variant"];
-  renderDay?: (date: Date) => React.ReactNode; // <-- Yeni özellik
+  renderDay?: (date: Date) => React.ReactNode;
 };
 
 function Calendar({
@@ -25,7 +24,7 @@ function Calendar({
   buttonVariant = "ghost",
   formatters,
   components,
-  renderDay, // <-- Bunu alıyoruz
+  renderDay,
   ...props
 }: CalendarProps) {
   const defaultClassNames = getDefaultClassNames();
@@ -33,12 +32,7 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn(
-        "bg-background group/calendar p-3 [--cell-size:--spacing(8)] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent",
-        String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
-        String.raw`rtl:**:[.rdp-button\_previous>svg]:rotate-180`,
-        className
-      )}
+      className={cn("p-3", className)}
       captionLayout={captionLayout}
       formatters={{
         formatMonthDropdown: date =>
@@ -58,133 +52,58 @@ function Calendar({
         ),
         button_previous: cn(
           buttonVariants({ variant: buttonVariant }),
-          "size-(--cell-size) aria-disabled:opacity-50 p-0 select-none",
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
           defaultClassNames.button_previous
         ),
         button_next: cn(
           buttonVariants({ variant: buttonVariant }),
-          "size-(--cell-size) aria-disabled:opacity-50 p-0 select-none",
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
           defaultClassNames.button_next
         ),
-        month_caption: cn(
-          "flex items-center justify-center h-(--cell-size) w-full px-(--cell-size)",
-          defaultClassNames.month_caption
-        ),
-        dropdowns: cn(
-          "w-full flex items-center text-sm font-medium justify-center h-(--cell-size) gap-1.5",
-          defaultClassNames.dropdowns
-        ),
-        dropdown_root: cn(
-          "relative has-focus:border-ring border border-input shadow-xs has-focus:ring-ring/50 has-focus:ring-[3px] rounded-md",
-          defaultClassNames.dropdown_root
-        ),
-        dropdown: cn(
-          "absolute bg-popover inset-0 opacity-0",
-          defaultClassNames.dropdown
-        ),
         caption_label: cn(
-          "select-none font-medium",
-          captionLayout === "label"
-            ? "text-sm"
-            : "rounded-md pl-2 pr-1 flex items-center gap-1 text-sm h-8 [&>svg]:text-muted-foreground [&>svg]:size-3.5",
+          "text-sm font-medium",
           defaultClassNames.caption_label
         ),
-        table: "w-full border-collapse",
-        weekdays: cn("flex", defaultClassNames.weekdays),
-        weekday: cn(
-          "text-muted-foreground rounded-md flex-1 font-normal text-[0.8rem] select-none",
-          defaultClassNames.weekday
-        ),
-        week: cn("flex w-full mt-2", defaultClassNames.week),
-        week_number_header: cn(
-          "select-none w-(--cell-size)",
-          defaultClassNames.week_number_header
-        ),
-        week_number: cn(
-          "text-[0.8rem] select-none text-muted-foreground",
-          defaultClassNames.week_number
-        ),
+        table: "w-full border-collapse space-y-1",
+        head_row: "flex",
+        head_cell:
+          "text-muted-foreground rounded-md w-10 font-normal text-[0.8rem]", // w-10 yaptık (Daha geniş)
+        row: "flex w-full mt-2",
+        cell: "h-10 w-10 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
-          "relative w-full h-full p-0 text-center [&:last-child[data-selected=true]_button]:rounded-r-md group/day aspect-square select-none",
-          props.showWeekNumber
-            ? "[&:nth-child(2)[data-selected=true]_button]:rounded-l-md"
-            : "[&:first-child[data-selected=true]_button]:rounded-l-md",
-          defaultClassNames.day
+          buttonVariants({ variant: "ghost" }),
+          "h-10 w-10 p-0 font-normal aria-selected:opacity-100 rounded-md" // rounded-md ile KARE yaptık, h-10 w-10 ile sabitledik
         ),
-        range_start: cn(
-          "rounded-l-md bg-accent",
-          defaultClassNames.range_start
-        ),
-        range_middle: cn("rounded-none", defaultClassNames.range_middle),
-        range_end: cn("rounded-r-md bg-accent", defaultClassNames.range_end),
-        today: cn(
-          "bg-accent text-accent-foreground rounded-md data-[selected=true]:rounded-none",
-          defaultClassNames.today
-        ),
-        outside: cn(
-          "text-muted-foreground aria-selected:text-muted-foreground",
-          defaultClassNames.outside
-        ),
-        disabled: cn(
-          "text-muted-foreground opacity-50",
-          defaultClassNames.disabled
-        ),
-        hidden: cn("invisible", defaultClassNames.hidden),
+        day_selected:
+          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground", // Mavi kenarlığı kaldırıp tam dolgu yaptık
+        day_today: "bg-accent text-accent-foreground",
+        day_outside:
+          "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
+        day_disabled: "text-muted-foreground opacity-50",
+        day_range_middle:
+          "aria-selected:bg-accent aria-selected:text-accent-foreground",
+        day_hidden: "invisible",
         ...classNames,
       }}
       components={{
-        Root: ({ className, rootRef, ...props }) => {
-          return (
-            <div
-              data-slot="calendar"
-              ref={rootRef}
-              className={cn(className)}
-              {...props}
-            />
-          );
-        },
         Chevron: ({ className, orientation, ...props }) => {
-          if (orientation === "left") {
+          if (orientation === "left")
             return (
-              <ChevronLeftIcon className={cn("size-4", className)} {...props} />
-            );
-          }
-          if (orientation === "right") {
-            return (
-              <ChevronRightIcon
-                className={cn("size-4", className)}
+              <ChevronLeftIcon
+                className={cn("h-4 w-4", className)}
                 {...props}
               />
             );
-          }
           return (
-            <ChevronDownIcon className={cn("size-4", className)} {...props} />
+            <ChevronRightIcon className={cn("h-4 w-4", className)} {...props} />
           );
         },
-        // DayButton bileşenine renderDay fonksiyonunu prop olarak geçiriyoruz
-        // Ancak DayButton DayPicker'dan gelen propları alır.
-        // Burada trick yapıp children'ı ezeceğiz.
         DayButton: dayButtonProps => {
-          // Eğer dışarıdan renderDay geldiyse onu kullan, yoksa varsayılan günü göster
           const content = renderDay
             ? renderDay(dayButtonProps.day.date)
             : dayButtonProps.day.date.getDate();
-
-          // CalendarDayButton'ı çağırırken children yerine content'i basıyoruz gibi düşünebiliriz
-          // Ancak CalendarDayButton 'Button' render ediyor ve children'ı props'tan almıyor olabilir mi?
-          // react-day-picker v9'da DayButton children render eder.
-
           return (
             <CalendarDayButton {...dayButtonProps}>{content}</CalendarDayButton>
-          );
-        },
-        WeekNumber: ({ children, ...props }) => {
-          return (
-            <td {...props}>
-              <div className="flex size-(--cell-size) items-center justify-center text-center">
-                {children}
-              </div>
-            </td>
           );
         },
         ...components,
@@ -198,12 +117,12 @@ function CalendarDayButton({
   className,
   day,
   modifiers,
-  children, // <-- Children eklendi
+  children,
   ...props
 }: React.ComponentProps<typeof DayButton>) {
   const defaultClassNames = getDefaultClassNames();
-
   const ref = React.useRef<HTMLButtonElement>(null);
+
   React.useEffect(() => {
     if (modifiers.focused) ref.current?.focus();
   }, [modifiers.focused]);
@@ -212,28 +131,21 @@ function CalendarDayButton({
     <Button
       ref={ref}
       variant="ghost"
-      size="icon"
-      data-day={day.date.toLocaleDateString()}
-      data-selected-single={
-        modifiers.selected &&
-        !modifiers.range_start &&
-        !modifiers.range_end &&
-        !modifiers.range_middle
-      }
-      data-range-start={modifiers.range_start}
-      data-range-end={modifiers.range_end}
-      data-range-middle={modifiers.range_middle}
+      // size="icon" // Bunu kaldırdık, çünkü boyutu yukarıda 'day' sınıfında (h-10 w-10) elle verdik
       className={cn(
-        "data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground data-[range-middle=true]:bg-accent data-[range-middle=true]:text-accent-foreground data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-ring/50 dark:hover:text-accent-foreground flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 leading-none font-normal group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:ring-[3px] data-[range-end=true]:rounded-md data-[range-end=true]:rounded-r-md data-[range-middle=true]:rounded-none data-[range-start=true]:rounded-md data-[range-start=true]:rounded-l-md [&>span]:text-xs [&>span]:opacity-70",
-        defaultClassNames.day,
+        "h-10 w-10 p-0 font-normal aria-selected:opacity-100 rounded-md", // Burada da KARE ve BOYUT garantilendi
+        modifiers.selected &&
+          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground", // Seçili stil
+        modifiers.today &&
+          !modifiers.selected &&
+          "bg-accent text-accent-foreground", // Bugün (seçili değilse)
         className
       )}
       {...props}
     >
-      {/* Varsayılan date.getDate() yerine gelen children'ı render et */}
       {children}
     </Button>
   );
 }
 
-export { Calendar, CalendarDayButton };
+export { Calendar };

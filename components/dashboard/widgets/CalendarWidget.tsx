@@ -41,7 +41,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Tabs eklendi (shadcn yüklü varsayıyorum, değilse manuel buton yapacağız)
 
 const WEEKDAYS = [
   { id: 1, label: "Pt" },
@@ -53,7 +52,6 @@ const WEEKDAYS = [
   { id: 0, label: "Pz" },
 ];
 
-// Hava Durumu İkon Seçici
 const getWeatherIcon = (code: number) => {
   if (code === 0)
     return { icon: Sun, label: "clear", color: "text-yellow-500" };
@@ -96,11 +94,13 @@ export function CalendarWidget({
   const [holidays, setHolidays] = useState<Holiday[]>(initialHolidays);
   const [loading, setLoading] = useState(false);
 
+  // GÖRÜNÜM MODU: 'events' veya 'tasks'
+  const [activeTab, setActiveTab] = useState<"events" | "tasks">("events");
+
   const [currentTime, setCurrentTime] = useState(new Date());
   const [weather, setWeather] = useState<any>(null);
   const [locationName, setLocationName] = useState(t("detectingLocation"));
 
-  // Form
   const [frequency, setFrequency] = useState("none");
   const [privacyLevel, setPrivacyLevel] = useState("family");
   const [selectedWeekDays, setSelectedWeekDays] = useState<number[]>([]);
@@ -217,6 +217,7 @@ export function CalendarWidget({
 
   return (
     <Card className="h-full flex flex-col shadow-sm relative overflow-hidden">
+      {/* HEADER */}
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 z-10">
         <div className="flex items-center gap-3">
           <CardTitle className="text-sm font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2">
@@ -244,49 +245,37 @@ export function CalendarWidget({
             onSelect={setSelectedDate}
             onDayClick={handleDayClick}
             locale={dateLocale}
-            // GÜNCELLEME: Kare seçim (rounded-md) için style eziliyor
-            classNames={{
-              day_selected:
-                "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground !rounded-md",
-              day_today: "bg-accent text-accent-foreground !rounded-md",
-            }}
+            // NOT: classNames override'ını kaldırdık çünkü base component artık düzgün
             className="rounded-md"
-            components={{
-              DayContent: props => {
-                const dayStr = format(props.date, "yyyy-MM-dd");
-                const weatherIndex = weather?.daily?.time
-                  ? weather.daily.time.indexOf(dayStr)
-                  : -1;
+            renderDay={date => {
+              const dayStr = format(date, "yyyy-MM-dd");
+              const weatherIndex = weather?.daily?.time
+                ? weather.daily.time.indexOf(dayStr)
+                : -1;
 
-                let weatherInfo = null;
-                if (weatherIndex > -1 && weather?.daily) {
-                  weatherInfo = getWeatherIcon(
-                    weather.daily.weather_code[weatherIndex]
-                  );
-                }
-
-                // Basit bir etkinlik sayacı (Client side filtering - hızlı çözüm)
-                // Not: items sadece seçili gün için çekiliyor, burada tüm ayı bilemeyiz.
-                // Tüm ayı bilmek için aylık veri çekmek gerekir.
-                // Şimdilik sadece seçili günün görselini etkiliyoruz.
-
-                return (
-                  <div className="w-full h-full flex flex-col items-center justify-center pt-1">
-                    <span className="text-sm font-medium leading-none">
-                      {props.date.getDate()}
-                    </span>
-                    {weatherInfo ? (
-                      <div className="mt-1">
-                        <weatherInfo.icon
-                          className={`h-3 w-3 ${weatherInfo.color}`}
-                        />
-                      </div>
-                    ) : (
-                      <div className="h-3 w-3 mt-1"></div>
-                    )}
-                  </div>
+              let weatherInfo = null;
+              if (weatherIndex > -1 && weather?.daily) {
+                weatherInfo = getWeatherIcon(
+                  weather.daily.weather_code[weatherIndex]
                 );
-              },
+              }
+
+              return (
+                <div className="w-full h-full flex flex-col items-center justify-center pt-1">
+                  <span className="text-sm font-medium leading-none">
+                    {date.getDate()}
+                  </span>
+                  {weatherInfo ? (
+                    <div className="mt-1 flex flex-col items-center">
+                      <weatherInfo.icon
+                        className={`h-3 w-3 ${weatherInfo.color}`}
+                      />
+                    </div>
+                  ) : (
+                    <div className="h-3 w-3 mt-1"></div>
+                  )}
+                </div>
+              );
             }}
             modifiers={{ holiday: holidays.map(h => new Date(h.date)) }}
             modifiersStyles={{
@@ -297,7 +286,7 @@ export function CalendarWidget({
 
         {/* SAĞ: LİSTE */}
         <div className="flex-1 flex flex-col gap-0 overflow-hidden border rounded-xl bg-gray-50 dark:bg-gray-900/50 dark:border-gray-800 relative">
-          {/* HAVA DURUMU ŞERİDİ */}
+          {/* SAATLİK HAVA DURUMU */}
           {hourlyForecast.length > 0 && (
             <div className="w-full bg-white dark:bg-gray-800/50 border-b dark:border-gray-700 p-3 overflow-x-auto no-scrollbar flex items-center gap-4">
               {hourlyForecast.map((h: any, i: number) => {
@@ -320,178 +309,187 @@ export function CalendarWidget({
             </div>
           )}
 
-          <div className="p-3 flex-1 flex flex-col gap-3 overflow-hidden">
-            <div className="flex justify-between items-center">
-              <div className="flex flex-col">
-                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                  {selectedDate
-                    ? format(selectedDate, "d MMMM, EEEE", {
-                        locale: dateLocale,
-                      })
-                    : t("today")}
-                </h4>
-                {selectedDate && getHolidayForDate(selectedDate) && (
-                  <span className="text-[10px] text-red-500 font-bold flex items-center gap-1">
-                    🎉 {getHolidayForDate(selectedDate)?.localName}
-                  </span>
-                )}
+          <div className="p-3 flex-1 flex flex-col gap-3 overflow-auto">
+            {/* HEADER ve SEKME SEÇİCİ */}
+            <div className="flex justify-between items-center border-b dark:border-gray-700 pb-2">
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setActiveTab("events")}
+                  className={cn(
+                    "text-xs font-bold pb-1 transition-all relative",
+                    activeTab === "events"
+                      ? "text-blue-600 dark:text-blue-400"
+                      : "text-gray-400 hover:text-gray-600"
+                  )}
+                >
+                  Etkinlikler ({eventList.length})
+                  {activeTab === "events" && (
+                    <div className="absolute bottom-[-9px] left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400"></div>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setActiveTab("tasks")}
+                  className={cn(
+                    "text-xs font-bold pb-1 transition-all relative",
+                    activeTab === "tasks"
+                      ? "text-orange-600 dark:text-orange-400"
+                      : "text-gray-400 hover:text-gray-600"
+                  )}
+                >
+                  Görevler ({taskList.length})
+                  {activeTab === "tasks" && (
+                    <div className="absolute bottom-[-9px] left-0 w-full h-0.5 bg-orange-600 dark:bg-orange-400"></div>
+                  )}
+                </button>
               </div>
+
               <Button
                 size="sm"
                 variant="default"
-                className="h-8 bg-blue-600 hover:bg-blue-700 text-white gap-1 ml-2"
+                className="h-7 bg-blue-600 hover:bg-blue-700 text-white gap-1 ml-2 px-2 text-xs"
                 onClick={() => setIsDialogOpen(true)}
               >
-                <Plus className="h-3.5 w-3.5" /> {tCommon("add")}
+                <Plus className="h-3 w-3" /> {tCommon("add")}
               </Button>
             </div>
 
-            {/* SEKMELİ YAPI (TABS) */}
-            {loading ? (
-              <p className="text-xs text-center text-gray-400 animate-pulse mt-4">
-                {tCommon("loading")}
-              </p>
-            ) : (
-              // Tabs Bileşeni Yoksa Manuel Olarak Şöyle Yapılır:
-              <div className="flex flex-col h-full overflow-hidden">
-                <div className="flex gap-2 border-b dark:border-gray-700 pb-2">
-                  <button
-                    onClick={() => {
-                      /* Sekme state'i eklenebilir ama şimdilik basit çözüm: İkisini alt alta göster */
-                    }}
-                    className="text-xs font-bold text-blue-600 border-b-2 border-blue-600 pb-1 px-1"
+            {/* TARİH VE TATİL BİLGİSİ */}
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                {selectedDate
+                  ? format(selectedDate, "d MMMM yyyy, EEEE", {
+                      locale: dateLocale,
+                    })
+                  : t("today")}
+              </h4>
+              {selectedDate && getHolidayForDate(selectedDate) && (
+                <span className="text-[10px] text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                  🎉 {getHolidayForDate(selectedDate)?.localName}
+                </span>
+              )}
+            </div>
+
+            {/* LİSTE İÇERİĞİ */}
+            <div className="space-y-2 flex-1">
+              {loading && (
+                <p className="text-xs text-center text-gray-400 animate-pulse">
+                  {tCommon("loading")}
+                </p>
+              )}
+
+              {/* ETKİNLİKLER LİSTESİ */}
+              {activeTab === "events" &&
+                eventList.length > 0 &&
+                eventList.map(event => (
+                  <div
+                    key={event.id}
+                    className="flex items-center gap-3 p-2.5 bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-800 border-l-4 border-l-blue-500 shadow-sm animate-in fade-in slide-in-from-bottom-1"
                   >
-                    Etkinlikler ({eventList.length})
-                  </button>
-                  <button className="text-xs font-medium text-gray-500 pb-1 px-1">
-                    Görevler ({taskList.length})
-                  </button>
-                </div>
-
-                {/* Basit Sekme Mantığı (State olmadan listeleyelim, Tabs bileşeni projenizde yoksa) */}
-                {/* Eğer Tabs bileşeni shadcn'den kuruluysa <Tabs>...</Tabs> kullanabiliriz. 
-                            Aşağıda manuel sekme yerine, her ikisini de şık başlıklarla listeliyorum */}
-
-                <div className="flex-1 overflow-auto space-y-4 mt-2 pr-1">
-                  {/* Bölüm 1: Etkinlikler */}
-                  {eventList.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                        Etkinlikler
-                      </p>
-                      {eventList.map(event => (
-                        <div
-                          key={event.id}
-                          className="flex items-center gap-3 p-2.5 bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-800 border-l-4 border-l-blue-500 shadow-sm"
-                        >
-                          <div className="bg-blue-50 dark:bg-blue-900/20 p-1.5 rounded text-blue-600">
-                            <CalIcon className="h-4 w-4" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex justify-between items-center">
-                              <p className="text-xs font-bold text-gray-800 dark:text-gray-200">
-                                {event.title}
-                              </p>
-                              {event.frequency &&
-                                event.frequency !== "none" && (
-                                  <Repeat className="h-3 w-3 text-gray-400" />
-                                )}
-                            </div>
-                            <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                              {event.time
-                                ? format(new Date(event.time), "HH:mm")
-                                : "Tüm Gün"}
-                            </p>
-                          </div>
-                          {event.privacy_level === "private" && (
-                            <Lock className="h-3 w-3 text-gray-300" />
-                          )}
-                        </div>
-                      ))}
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-1.5 rounded text-blue-600">
+                      <CalIcon className="h-4 w-4" />
                     </div>
-                  )}
-
-                  {/* Bölüm 2: Görevler */}
-                  {taskList.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                        Evcil Hayvan Görevleri
+                    <div className="flex-1">
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs font-bold text-gray-800 dark:text-gray-200">
+                          {event.title}
+                        </p>
+                        {event.frequency && event.frequency !== "none" && (
+                          <Repeat className="h-3 w-3 text-gray-400" />
+                        )}
+                      </div>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                        {event.time
+                          ? format(new Date(event.time), "HH:mm")
+                          : "Tüm Gün"}
                       </p>
-                      {taskList.map(task => (
-                        <div
-                          key={task.id}
-                          className={`flex items-center justify-between p-2.5 rounded-lg border shadow-sm transition-all ${
+                    </div>
+                    {event.privacy_level === "private" && (
+                      <Lock className="h-3 w-3 text-gray-300" />
+                    )}
+                  </div>
+                ))}
+
+              {/* BOŞ ETKİNLİK UYARISI */}
+              {activeTab === "events" && eventList.length === 0 && !loading && (
+                <div className="text-center text-xs text-gray-400 py-8 flex flex-col items-center gap-2 opacity-60">
+                  <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-full">
+                    <CalIcon className="h-6 w-6 text-gray-300" />
+                  </div>
+                  <span>Etkinlik yok.</span>
+                </div>
+              )}
+
+              {/* GÖREVLER LİSTESİ */}
+              {activeTab === "tasks" &&
+                taskList.length > 0 &&
+                taskList.map(task => (
+                  <div
+                    key={task.id}
+                    className={`flex items-center justify-between p-2.5 rounded-lg border shadow-sm transition-all animate-in fade-in slide-in-from-bottom-1 ${
+                      task.is_completed
+                        ? "bg-green-50/50 border-green-200 opacity-70 dark:bg-green-900/10 dark:border-green-900"
+                        : "bg-white border-orange-200 hover:border-orange-300 dark:bg-gray-900 dark:border-orange-900/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs shadow-sm"
+                        style={{ backgroundColor: task.pet_color || "#ccc" }}
+                      >
+                        <PawPrint className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p
+                          className={`text-xs font-bold ${
                             task.is_completed
-                              ? "bg-green-50/50 border-green-200 opacity-70 dark:bg-green-900/10 dark:border-green-900"
-                              : "bg-white border-orange-200 hover:border-orange-300 dark:bg-gray-900 dark:border-orange-900/50"
+                              ? "line-through text-gray-500"
+                              : "text-gray-800 dark:text-gray-200"
                           }`}
                         >
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs shadow-sm"
-                              style={{
-                                backgroundColor: task.pet_color || "#ccc",
-                              }}
-                            >
-                              <PawPrint className="h-4 w-4" />
-                            </div>
-                            <div>
-                              <p
-                                className={`text-xs font-bold ${
-                                  task.is_completed
-                                    ? "line-through text-gray-500"
-                                    : "text-gray-800 dark:text-gray-200"
-                                }`}
-                              >
-                                {task.title}
-                              </p>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[10px] font-semibold text-orange-600 bg-orange-50 dark:bg-orange-900/20 px-1.5 py-0.5 rounded">
-                                  {task.pet_name}
-                                </span>
-                                <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                                  {task.is_completed
-                                    ? `✅ ${task.completed_by}`
-                                    : `+${task.points} P`}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          {!task.is_completed && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 px-3 text-xs text-orange-600 bg-orange-50 hover:bg-orange-100 hover:text-orange-700 dark:bg-orange-900/20 dark:hover:bg-orange-900/40"
-                              onClick={() =>
-                                handleCompleteTask(
-                                  task.routine_id!,
-                                  task.points!
-                                )
-                              }
-                            >
-                              Yap
-                            </Button>
-                          )}
+                          {task.title}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] font-semibold text-orange-600 bg-orange-50 dark:bg-orange-900/20 px-1.5 py-0.5 rounded">
+                            {task.pet_name}
+                          </span>
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                            {task.is_completed
+                              ? `✅ ${task.completed_by}`
+                              : `+${task.points} P`}
+                          </span>
                         </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {items.length === 0 && (
-                    <div className="text-center text-xs text-gray-400 py-8 flex flex-col items-center gap-2 opacity-60">
-                      <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-full">
-                        <CalIcon className="h-6 w-6 text-gray-300" />
                       </div>
-                      <span>{t("noEvents")}</span>
                     </div>
-                  )}
+                    {!task.is_completed && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-3 text-xs text-orange-600 bg-orange-50 hover:bg-orange-100 hover:text-orange-700 dark:bg-orange-900/20 dark:hover:bg-orange-900/40"
+                        onClick={() =>
+                          handleCompleteTask(task.routine_id!, task.points!)
+                        }
+                      >
+                        Yap
+                      </Button>
+                    )}
+                  </div>
+                ))}
+
+              {/* BOŞ GÖREV UYARISI */}
+              {activeTab === "tasks" && taskList.length === 0 && !loading && (
+                <div className="text-center text-xs text-gray-400 py-8 flex flex-col items-center gap-2 opacity-60">
+                  <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-full">
+                    <PawPrint className="h-6 w-6 text-gray-300" />
+                  </div>
+                  <span>Görev yok.</span>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
-        {/* MODAL AYNI */}
+        {/* MODAL AYNI KALIYOR (Kod Tekrarı Yapmıyorum, önceki cevaptaki aynısı) */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
