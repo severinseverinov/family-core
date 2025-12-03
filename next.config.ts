@@ -12,9 +12,15 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "**.supabase.co", // Kendi Supabase URL'ini buraya yazabilirsin
+        hostname: "**.supabase.co",
       },
     ],
+  },
+  // BU KISIM EKLENDİ: Dosya yükleme limitini 10MB yaptık
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
   },
   reactCompiler: true,
 };

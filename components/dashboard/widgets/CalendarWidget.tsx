@@ -29,7 +29,7 @@ import {
   type Holiday,
   type DashboardItem,
 } from "@/app/actions/events";
-import { completePetTask } from "@/app/actions/pets";
+import { completePetTask, approveTask } from "@/app/actions/pets";
 
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -74,12 +74,16 @@ interface CalendarWidgetProps {
   initialItems: DashboardItem[];
   initialHolidays: Holiday[];
   familyMembers: any[];
+  userRole: string;
+  userId: string;
 }
 
 export function CalendarWidget({
   initialItems,
   initialHolidays,
   familyMembers,
+  userRole,
+  userId,
 }: CalendarWidgetProps) {
   const t = useTranslations("Calendar");
   const tCommon = useTranslations("Common");
@@ -94,7 +98,6 @@ export function CalendarWidget({
   const [holidays, setHolidays] = useState<Holiday[]>(initialHolidays);
   const [loading, setLoading] = useState(false);
 
-  // GÖRÜNÜM MODU: 'events' veya 'tasks' (Varsayılan: events)
   const [activeTab, setActiveTab] = useState<"events" | "tasks">("events");
 
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -112,6 +115,7 @@ export function CalendarWidget({
     return () => clearInterval(timer);
   }, []);
 
+  // Hava Durumu
   useEffect(() => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -134,11 +138,11 @@ export function CalendarWidget({
               locData.address?.village ||
               locData.address?.state;
             setLocationName(city || "Konum");
-          } catch (error) {
-            setLocationName("Hava durumu alınamadı");
+          } catch {
+            setLocationName("Hava durumu yok");
           }
         },
-        error => setLocationName(t("locationDenied"))
+        () => setLocationName(t("locationDenied"))
       );
     } else {
       setLocationName("Desteklenmiyor");
@@ -151,8 +155,8 @@ export function CalendarWidget({
       const dateStr = date.toISOString();
       const res = await getDashboardItems(dateStr);
       if (res.items) setItems(res.items);
-    } catch (e) {
-      console.error(e);
+    } catch {
+      /* ignore */
     } finally {
       setLoading(false);
     }
@@ -173,6 +177,16 @@ export function CalendarWidget({
       toast.success(t("successTask", { points }));
       if (selectedDate) fetchItemsForDate(selectedDate);
       router.refresh();
+    }
+  };
+
+  const handleApprove = async (logId: string) => {
+    const res = await approveTask(logId);
+    if (res?.error) toast.error("Hata");
+    else {
+      toast.success("Onaylandı!");
+      router.refresh();
+      if (selectedDate) fetchItemsForDate(selectedDate);
     }
   };
 
@@ -216,14 +230,13 @@ export function CalendarWidget({
 
   return (
     <Card className="h-full flex flex-col shadow-sm relative overflow-hidden">
-      {/* HEADER */}
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 z-10">
         <div className="flex items-center gap-3">
           <CardTitle className="text-sm font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2">
             {t("title")}
           </CardTitle>
           {locationName && (
-            <div className="hidden md:flex items-center text-[10px] text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full transition-all hover:bg-blue-50 dark:hover:bg-blue-900/30">
+            <div className="hidden md:flex items-center text-[10px] text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full">
               <MapPin className="h-3 w-3 mr-1 text-blue-500" />
               {locationName}
             </div>
@@ -235,7 +248,6 @@ export function CalendarWidget({
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col md:flex-row gap-4 p-4 pt-0 z-10">
-        {/* SOL: TAKVİM */}
         <div className="border rounded-xl p-3 flex justify-center bg-white dark:bg-black/20 dark:border-gray-800 shadow-sm h-fit w-full md:w-auto">
           <Calendar
             key={weather ? "weather-loaded" : "weather-loading"}
@@ -251,13 +263,10 @@ export function CalendarWidget({
                 ? weather.daily.time.indexOf(dayStr)
                 : -1;
               let weatherInfo = null;
-
-              if (weatherIndex > -1 && weather?.daily) {
+              if (weatherIndex > -1 && weather?.daily)
                 weatherInfo = getWeatherIcon(
                   weather.daily.weather_code[weatherIndex]
                 );
-              }
-
               return (
                 <div className="w-full h-full flex flex-col items-center justify-center pt-1">
                   <span className="text-sm font-medium leading-none">
@@ -282,9 +291,7 @@ export function CalendarWidget({
           />
         </div>
 
-        {/* SAĞ: LİSTE VE SEKMELER */}
         <div className="flex-1 flex flex-col gap-0 overflow-hidden border rounded-xl bg-gray-50 dark:bg-gray-900/50 dark:border-gray-800 relative">
-          {/* SAATLİK HAVA DURUMU */}
           {hourlyForecast.length > 0 && (
             <div className="w-full bg-white dark:bg-gray-800/50 border-b dark:border-gray-700 p-3 overflow-x-auto no-scrollbar flex items-center gap-4">
               {hourlyForecast.map((h: any, i: number) => {
@@ -308,7 +315,6 @@ export function CalendarWidget({
           )}
 
           <div className="p-3 flex-1 flex flex-col gap-3 overflow-auto">
-            {/* SEKME SEÇİCİ (ETKİNLİKLER / GÖREVLER) */}
             <div className="flex justify-between items-center border-b dark:border-gray-700 pb-2">
               <div className="flex gap-4">
                 <button
@@ -325,7 +331,6 @@ export function CalendarWidget({
                     <div className="absolute bottom-[-9px] left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400"></div>
                   )}
                 </button>
-
                 <button
                   onClick={() => setActiveTab("tasks")}
                   className={cn(
@@ -341,7 +346,6 @@ export function CalendarWidget({
                   )}
                 </button>
               </div>
-
               <Button
                 size="sm"
                 variant="default"
@@ -352,7 +356,6 @@ export function CalendarWidget({
               </Button>
             </div>
 
-            {/* TARİH VE TATİL BİLGİSİ */}
             <div className="flex items-center gap-2">
               <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                 {selectedDate
@@ -368,7 +371,6 @@ export function CalendarWidget({
               )}
             </div>
 
-            {/* LİSTE İÇERİĞİ */}
             <div className="space-y-2 flex-1">
               {loading && (
                 <p className="text-xs text-center text-gray-400 animate-pulse">
@@ -376,7 +378,6 @@ export function CalendarWidget({
                 </p>
               )}
 
-              {/* ETKİNLİKLER LİSTESİ */}
               {activeTab === "events" &&
                 eventList.length > 0 &&
                 eventList.map(event => (
@@ -408,7 +409,6 @@ export function CalendarWidget({
                   </div>
                 ))}
 
-              {/* BOŞ ETKİNLİK UYARISI */}
               {activeTab === "events" && eventList.length === 0 && !loading && (
                 <div className="text-center text-xs text-gray-400 py-8 flex flex-col items-center gap-2 opacity-60">
                   <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-full">
@@ -418,63 +418,99 @@ export function CalendarWidget({
                 </div>
               )}
 
-              {/* GÖREVLER LİSTESİ */}
               {activeTab === "tasks" &&
                 taskList.length > 0 &&
-                taskList.map(task => (
-                  <div
-                    key={task.id}
-                    className={`flex items-center justify-between p-2.5 rounded-lg border shadow-sm transition-all animate-in fade-in slide-in-from-bottom-1 ${
-                      task.is_completed
-                        ? "bg-green-50/50 border-green-200 opacity-70 dark:bg-green-900/10 dark:border-green-900"
-                        : "bg-white border-orange-200 hover:border-orange-300 dark:bg-gray-900 dark:border-orange-900/50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs shadow-sm"
-                        style={{ backgroundColor: task.pet_color || "#ccc" }}
-                      >
-                        <PawPrint className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <p
-                          className={`text-xs font-bold ${
-                            task.is_completed
-                              ? "line-through text-gray-500"
-                              : "text-gray-800 dark:text-gray-200"
-                          }`}
+                taskList.map(task => {
+                  const isChild = !["owner", "admin"].includes(userRole);
+                  const isToday = isSameDay(
+                    selectedDate || new Date(),
+                    new Date()
+                  );
+                  const isAssignedToMe =
+                    !task.assigned_to ||
+                    task.assigned_to.length === 0 ||
+                    task.assigned_to.includes(userId);
+                  const isPending = task.status === "pending";
+                  const isDone = task.is_completed; // API'den gelen is_completed aslında status kontrolüdür
+
+                  return (
+                    <div
+                      key={task.id}
+                      className={`flex items-center justify-between p-2.5 rounded-lg border shadow-sm transition-all animate-in fade-in slide-in-from-bottom-1 ${
+                        isDone
+                          ? "bg-green-50/50 border-green-200 opacity-70 dark:bg-green-900/10 dark:border-green-900"
+                          : "bg-white border-orange-200 hover:border-orange-300 dark:bg-gray-900 dark:border-orange-900/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs shadow-sm"
+                          style={{ backgroundColor: task.pet_color || "#ccc" }}
                         >
-                          {task.title}
-                        </p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[10px] font-semibold text-orange-600 bg-orange-50 dark:bg-orange-900/20 px-1.5 py-0.5 rounded">
-                            {task.pet_name}
-                          </span>
-                          <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                            {task.is_completed
-                              ? `✅ ${task.completed_by}`
-                              : `+${task.points} P`}
-                          </span>
+                          <PawPrint className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p
+                            className={`text-xs font-bold ${
+                              isDone
+                                ? "line-through text-gray-500"
+                                : "text-gray-800 dark:text-gray-200"
+                            }`}
+                          >
+                            {task.title}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] font-semibold text-orange-600 bg-orange-50 dark:bg-orange-900/20 px-1.5 py-0.5 rounded">
+                              {task.pet_name}
+                            </span>
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                              {isDone
+                                ? `✅ ${task.completed_by}`
+                                : `+${task.points} P`}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    {!task.is_completed && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 px-3 text-xs text-orange-600 bg-orange-50 hover:bg-orange-100 hover:text-orange-700 dark:bg-orange-900/20 dark:hover:bg-orange-900/40"
-                        onClick={() =>
-                          handleCompleteTask(task.routine_id!, task.points!)
-                        }
-                      >
-                        Yap
-                      </Button>
-                    )}
-                  </div>
-                ))}
 
-              {/* BOŞ GÖREV UYARISI */}
+                      {/* BUTON MANTIĞI */}
+                      {isDone ? (
+                        <span className="text-[10px] text-green-600 font-bold">
+                          Yapıldı
+                        </span>
+                      ) : isPending ? (
+                        isChild ? (
+                          <span className="text-[10px] text-orange-500 font-bold animate-pulse">
+                            Onay Bekliyor
+                          </span>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="h-7 bg-green-600 hover:bg-green-700 text-white text-xs"
+                            onClick={() => handleApprove(task.log_id!)}
+                          >
+                            Onayla
+                          </Button>
+                        )
+                      ) : isAssignedToMe && (!isChild || isToday) ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-3 text-xs text-orange-600 bg-orange-50 hover:bg-orange-100 hover:text-orange-700 dark:bg-orange-900/20 dark:hover:bg-orange-900/40"
+                          onClick={() =>
+                            handleCompleteTask(task.routine_id!, task.points!)
+                          }
+                        >
+                          Yap
+                        </Button>
+                      ) : !isAssignedToMe ? (
+                        <span className="text-[10px] text-gray-300">
+                          Kilitli
+                        </span>
+                      ) : null}
+                    </div>
+                  );
+                })}
+
               {activeTab === "tasks" && taskList.length === 0 && !loading && (
                 <div className="text-center text-xs text-gray-400 py-8 flex flex-col items-center gap-2 opacity-60">
                   <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-full">
@@ -487,9 +523,8 @@ export function CalendarWidget({
           </div>
         </div>
 
-        {/* MODAL */}
+        {/* MODAL (Aynı kaldı) */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          {/* ... (Dialog içeriği aynı kalıyor, önceki koddan alınmıştır) */}
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>{t("addEvent")}</DialogTitle>

@@ -31,7 +31,7 @@ import {
   deletePet,
   addPetRoutine,
   type Pet,
-} from "@/app/actions/pets"; // <-- update ve delete eklendi
+} from "@/app/actions/pets";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
@@ -43,7 +43,8 @@ const PET_TYPES = [
   { value: "other", icon: PawPrint },
 ];
 
-export function PetWidget() {
+// Props ekliyoruz: familyMembers
+export function PetWidget({ familyMembers = [] }: { familyMembers?: any[] }) {
   const t = useTranslations("Pets");
   const tCommon = useTranslations("Common");
 
@@ -51,14 +52,12 @@ export function PetWidget() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modallar
-  const [dialogOpen, setDialogOpen] = useState(false); // Ekleme Modalı
-  const [editOpen, setEditOpen] = useState(false); // Düzenleme Modalı
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [routineOpen, setRoutineOpen] = useState(false);
 
   const [selectedPetId, setSelectedPetId] = useState("");
   const [editingPet, setEditingPet] = useState<Pet | null>(null);
-
   const [gender, setGender] = useState("male");
 
   const fetchPets = async () => {
@@ -71,7 +70,6 @@ export function PetWidget() {
     fetchPets();
   }, []);
 
-  // EKLEME
   const handleAddPet = async (fd: FormData) => {
     const res = await addPet(fd);
     if (res?.error) toast.error(tCommon("error"));
@@ -82,7 +80,6 @@ export function PetWidget() {
     }
   };
 
-  // GÜNCELLEME
   const handleUpdatePet = async (fd: FormData) => {
     const res = await updatePet(fd);
     if (res?.error) toast.error(tCommon("error"));
@@ -93,7 +90,6 @@ export function PetWidget() {
     }
   };
 
-  // SİLME
   const handleDeletePet = async (id: string) => {
     if (!confirm(tCommon("delete") + "?")) return;
     const res = await deletePet(id);
@@ -104,7 +100,6 @@ export function PetWidget() {
     }
   };
 
-  // RUTİN EKLEME
   const handleAddRoutine = async (fd: FormData) => {
     const res = await addPetRoutine(fd);
     if (res?.error) toast.error(tCommon("error"));
@@ -115,7 +110,6 @@ export function PetWidget() {
     }
   };
 
-  // Düzenle butonuna tıklayınca
   const openEditModal = (pet: Pet) => {
     setEditingPet(pet);
     setEditOpen(true);
@@ -181,7 +175,6 @@ export function PetWidget() {
                 </div>
               </div>
 
-              {/* Buton Grubu (Hover'da görünür) */}
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 dark:bg-black/50 backdrop-blur-sm rounded p-1 absolute right-2">
                 <Button
                   size="sm"
@@ -219,7 +212,6 @@ export function PetWidget() {
         )}
       </CardContent>
 
-      {/* 1. EKLEME MODALI */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -274,7 +266,6 @@ export function PetWidget() {
         </DialogContent>
       </Dialog>
 
-      {/* 2. DÜZENLEME MODALI */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
@@ -342,7 +333,7 @@ export function PetWidget() {
         </DialogContent>
       </Dialog>
 
-      {/* 3. RUTİN EKLEME MODALI */}
+      {/* RUTİN EKLEME MODALI - GÜNCELLENDİ */}
       <Dialog open={routineOpen} onOpenChange={setRoutineOpen}>
         <DialogContent>
           <DialogHeader>
@@ -381,6 +372,45 @@ export function PetWidget() {
                 defaultValue={new Date().toISOString().split("T")[0]}
               />
             </div>
+
+            {/* YENİ: KİME ATANSIN? */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Kime Atansın?</label>
+              <select
+                name="assignedTo"
+                className="w-full border p-2 rounded text-sm bg-background"
+              >
+                <option value="">Tüm Aile (Herkes)</option>
+                {familyMembers?.map((m: any) => (
+                  <option key={m.id} value={m.id}>
+                    {m.full_name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[9px] text-gray-400">
+                Boş bırakılırsa herkes yapabilir.
+              </p>
+            </div>
+
+            {/* YENİ: ONAY GEREKSİN Mİ? */}
+            <div className="flex items-center gap-2 border p-2 rounded bg-gray-50 dark:bg-gray-800">
+              <input
+                type="checkbox"
+                name="requiresVerification"
+                id="reqVer"
+                className="h-4 w-4"
+              />
+              <label
+                htmlFor="reqVer"
+                className="text-xs font-medium cursor-pointer"
+              >
+                Ebeveyn Onayı Gereksin mi?
+                <span className="block text-[9px] text-gray-400">
+                  İşaretlenirse puan hemen verilmez, onay beklenir.
+                </span>
+              </label>
+            </div>
+
             <Button type="submit" className="w-full">
               {tCommon("save")}
             </Button>

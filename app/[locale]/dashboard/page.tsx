@@ -20,7 +20,7 @@ import {
   getPointHistory,
   getPointRules,
 } from "@/app/actions/gamification";
-import { getFamilyMembers } from "@/app/actions/family"; // <-- EKLENDİ
+import { getFamilyMembers } from "@/app/actions/family";
 
 export default async function Dashboard() {
   const t = await getTranslations("Dashboard");
@@ -33,7 +33,7 @@ export default async function Dashboard() {
   } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
 
-  // 2. Profil ve Aile Kontrolü
+  // 2. Profil Kontrol
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("*")
@@ -61,11 +61,11 @@ export default async function Dashboard() {
     );
   }
 
-  // 3. KONUM BİLGİSİNİ AL
+  // 3. Konum
   const headersList = await headers();
   const countryCode = headersList.get("x-vercel-ip-country") || "TR";
 
-  // 4. TÜM VERİLERİ SUNUCUDA ÇEK
+  // 4. Verileri Çek
   const [
     holidays,
     dashboardData,
@@ -73,7 +73,7 @@ export default async function Dashboard() {
     rewardsData,
     historyData,
     rulesData,
-    membersData, // <-- Yeni
+    membersData,
   ] = await Promise.all([
     getPublicHolidays(countryCode),
     getDashboardItems(),
@@ -81,16 +81,15 @@ export default async function Dashboard() {
     getRewards(),
     getPointHistory(),
     getPointRules(),
-    getFamilyMembers(), // <-- Yeni
+    getFamilyMembers(),
   ]);
 
-  const userName =
-    profile.full_name || user.email?.split("@")[0] || "Kullanıcı";
+  const userName = profile.full_name || user.email?.split("@")[0] || "User";
   const userRole = profile.role || "member";
 
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-[1600px] mx-auto">
-      {/* BAŞLIK */}
+      {/* Başlık */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -102,28 +101,26 @@ export default async function Dashboard() {
         </div>
       </div>
 
-      {/* GRID YERLEŞİMİ */}
+      {/* Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* SOL SÜTUN */}
+        {/* Sol */}
         <div className="lg:col-span-8 space-y-6">
-          {/* 1. Takvim & Görevler */}
           <div className="h-[520px]">
             <CalendarWidget
               initialItems={dashboardData.items || []}
               initialHolidays={holidays}
-              familyMembers={membersData.members || []} // <-- Üyeleri gönderdik
+              familyMembers={membersData.members || []}
+              userRole={userRole}
+              userId={user.id}
             />
           </div>
-
-          {/* 2. Mutfak & Stok */}
           <div className="h-[400px]">
             <KitchenWidget userRole={userRole} />
           </div>
         </div>
 
-        {/* SAĞ SÜTUN */}
+        {/* Sağ */}
         <div className="lg:col-span-4 space-y-6">
-          {/* 3. Oyunlaştırma */}
           <div className="h-[480px]">
             <GamificationWidget
               initialUsers={leaderboardData.users || []}
@@ -132,13 +129,9 @@ export default async function Dashboard() {
               initialRules={rulesData.rules || []}
             />
           </div>
-
-          {/* 4. Evcil Hayvanlar */}
           <div className="h-[320px]">
-            <PetWidget />
+            <PetWidget familyMembers={membersData.members || []} />
           </div>
-
-          {/* 5. Aile Kasası */}
           <div className="h-[300px]">
             <VaultWidget />
           </div>

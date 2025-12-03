@@ -22,8 +22,11 @@ export interface DashboardItem {
   pet_color?: string;
   routine_id?: string;
   frequency?: string;
-  privacy_level?: string; // Yeni
-  assigned_to?: string; // Yeni
+  privacy_level?: string;
+  assigned_to?: string[] | null; // Dizi veya null olabilir
+  status?: "pending" | "completed";
+  log_id?: string;
+  requires_verification?: boolean;
 }
 
 export async function getPublicHolidays(countryCode: string = "TR") {
@@ -42,7 +45,6 @@ export async function getPublicHolidays(countryCode: string = "TR") {
   }
 }
 
-// GÜNCELLENDİ: Görünürlük Filtresi Eklendi
 export async function getDashboardItems(dateStr?: string) {
   const supabase = await createClient();
   const {
@@ -50,13 +52,11 @@ export async function getDashboardItems(dateStr?: string) {
   } = await supabase.auth.getUser();
   if (!user) return { items: [] };
 
-  // Kullanıcının rolünü de çekiyoruz
   const { data: profile } = await supabase
     .from("profiles")
     .select("family_id, role, id")
     .eq("id", user.id)
     .single();
-
   if (!profile?.family_id) return { items: [] };
 
   const isAdmin = ["owner", "admin"].includes(profile.role || "");
@@ -87,38 +87,29 @@ export async function getDashboardItems(dateStr?: string) {
   // 3. EVCİL HAYVAN RUTİNLERİ
   const { data: routines } = await supabase
     .from("pet_routines")
-    .select(`id, title, points, frequency, created_at, pets (name, color)`)
+    .select(
+      `
+      id, title, points, frequency, created_at, requires_verification, assigned_to,
+      pets (name, color)
+    `
+    )
     .eq("family_id", profile.family_id);
 
   const dashboardItems: DashboardItem[] = [];
 
-  // --- GÖRÜNÜRLÜK KONTROLÜ FONKSİYONU ---
+  // --- Görünürlük Kontrolü ---
   const canViewEvent = (event: any) => {
-    // 1. Tüm Aile
     if (event.privacy_level === "family" || !event.privacy_level) return true;
-
-    // 2. Sadece Ebeveynler
-    if (event.privacy_level === "parents") {
-      return isAdmin; // Sadece adminler görebilir
-    }
-
-    // 3. Belirli Kişi (Member)
-    if (event.privacy_level === "member") {
-      // Atanan kişi, Oluşturan kişi veya Adminler görebilir
+    if (event.privacy_level === "parents") return isAdmin;
+    if (event.privacy_level === "member")
       return (
         isAdmin || event.assigned_to === user.id || event.created_by === user.id
       );
-    }
-
-    // 4. Tamamen Gizli (Private - Eski koddan kalan varsa)
-    if (event.privacy_level === "private") {
-      return event.created_by === user.id;
-    }
-
+    if (event.privacy_level === "private") return event.created_by === user.id;
     return true;
   };
 
-  // A) Tek Seferlikleri Ekle (Filtreli)
+  // A) Tek Seferlikleri Ekle
   oneTimeEvents?.forEach(e => {
     if (canViewEvent(e)) {
       dashboardItems.push({
@@ -127,14 +118,15 @@ export async function getDashboardItems(dateStr?: string) {
         title: e.title,
         time: e.start_time,
         frequency: "none",
+        privacy_level: e.privacy_level,
       });
     }
   });
 
-  // B) Tekrarlayanları Hesapla ve Ekle (Filtreli)
+  // B) Tekrarlayanları Hesapla
   if (recurringEvents) {
     for (const event of recurringEvents) {
-      if (!canViewEvent(event)) continue; // Görme yetkisi yoksa atla
+      if (!canViewEvent(event)) continue;
 
       const startDate = new Date(event.start_time);
       let shouldShow = false;
@@ -143,9 +135,11 @@ export async function getDashboardItems(dateStr?: string) {
         shouldShow = true;
       } else if (event.frequency === "weekly") {
         if (event.recurrence_days && event.recurrence_days.length > 0) {
+          // Özel günler (0=Pazar, 1=Pzt...)
           if (event.recurrence_days.includes(targetDate.getDay()))
             shouldShow = true;
         } else {
+          // Standart haftalık (başladığı gün)
           if (startDate.getDay() === targetDate.getDay()) shouldShow = true;
         }
       } else if (event.frequency === "monthly") {
@@ -165,15 +159,17 @@ export async function getDashboardItems(dateStr?: string) {
           title: event.title,
           time: event.start_time,
           frequency: event.frequency,
+          privacy_level: event.privacy_level,
         });
       }
     }
   }
 
-  // C) Rutinleri Ekle
+  // C) Rutinleri Ekle (Görevler)
   if (routines) {
     for (const routine of routines) {
       const startDate = new Date(routine.created_at);
+      // Gelecekteki görevleri gösterme
       if (
         startDate > targetDate &&
         startDate.toDateString() !== targetDate.toDateString()
@@ -200,14 +196,16 @@ export async function getDashboardItems(dateStr?: string) {
         shouldShow = true;
 
       if (shouldShow) {
+        // Log kontrolü (Yapıldı mı?)
         const { data: log } = await supabase
           .from("pet_task_logs")
-          .select("profiles(full_name)")
+          .select("id, status, profiles(full_name)")
           .eq("routine_id", routine.id)
           .gte("completed_at", targetDateStart)
           .lte("completed_at", targetDateEnd)
           .maybeSingle();
 
+        // Güvenli Veri Okuma (Any Casting)
         const petData = routine.pets as any;
         const petName = Array.isArray(petData)
           ? petData[0]?.name
@@ -232,7 +230,11 @@ export async function getDashboardItems(dateStr?: string) {
           pet_name: petName,
           pet_color: petColor,
           is_completed: !!log,
+          status: log?.status as "pending" | "completed",
+          log_id: log?.id,
           completed_by: completedBy,
+          requires_verification: routine.requires_verification,
+          assigned_to: routine.assigned_to,
         });
       }
     }
@@ -241,7 +243,6 @@ export async function getDashboardItems(dateStr?: string) {
   return { items: dashboardItems };
 }
 
-// GÜNCELLENDİ: assigned_to Eklendi
 export async function createEvent(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -261,10 +262,8 @@ export async function createEvent(formData: FormData) {
     formData.get("start_time") as string
   ).toISOString();
   const end_time = new Date(formData.get("end_time") as string).toISOString();
-  const privacy_level = formData.get("privacy_level") as string; // 'family', 'parents', 'member'
+  const privacy_level = formData.get("privacy_level") as string;
   const frequency = (formData.get("frequency") as string) || "none";
-
-  // Atanan kişiyi al
   const assigned_to = (formData.get("assigned_to") as string) || null;
 
   const recurrenceDaysStr = formData.get("recurrence_days") as string;
@@ -281,7 +280,7 @@ export async function createEvent(formData: FormData) {
     privacy_level,
     frequency,
     recurrence_days,
-    assigned_to, // Yeni alan
+    assigned_to,
   });
 
   if (error) return { error: error.message };
