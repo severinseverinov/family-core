@@ -94,7 +94,7 @@ export function CalendarWidget({
   const [holidays, setHolidays] = useState<Holiday[]>(initialHolidays);
   const [loading, setLoading] = useState(false);
 
-  // GÖRÜNÜM MODU: 'events' veya 'tasks'
+  // GÖRÜNÜM MODU: 'events' veya 'tasks' (Varsayılan: events)
   const [activeTab, setActiveTab] = useState<"events" | "tasks">("events");
 
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -190,7 +190,6 @@ export function CalendarWidget({
   const getHourlyWeather = () => {
     if (!weather || !weather.hourly || !weather.hourly.time || !selectedDate)
       return [];
-
     const selDateStr = format(selectedDate, "yyyy-MM-dd");
     const currentHour = new Date().getHours();
     const isToday = isSameDay(selectedDate, new Date());
@@ -237,7 +236,7 @@ export function CalendarWidget({
 
       <CardContent className="flex-1 flex flex-col md:flex-row gap-4 p-4 pt-0 z-10">
         {/* SOL: TAKVİM */}
-        <div className="border rounded-xl p-3 flex justify-center bg-white dark:bg-black/20 dark:border-gray-800 shadow-sm h-fit">
+        <div className="border rounded-xl p-3 flex justify-center bg-white dark:bg-black/20 dark:border-gray-800 shadow-sm h-fit w-full md:w-auto">
           <Calendar
             key={weather ? "weather-loaded" : "weather-loading"}
             mode="single"
@@ -245,15 +244,14 @@ export function CalendarWidget({
             onSelect={setSelectedDate}
             onDayClick={handleDayClick}
             locale={dateLocale}
-            // NOT: classNames override'ını kaldırdık çünkü base component artık düzgün
             className="rounded-md"
             renderDay={date => {
               const dayStr = format(date, "yyyy-MM-dd");
               const weatherIndex = weather?.daily?.time
                 ? weather.daily.time.indexOf(dayStr)
                 : -1;
-
               let weatherInfo = null;
+
               if (weatherIndex > -1 && weather?.daily) {
                 weatherInfo = getWeatherIcon(
                   weather.daily.weather_code[weatherIndex]
@@ -266,7 +264,7 @@ export function CalendarWidget({
                     {date.getDate()}
                   </span>
                   {weatherInfo ? (
-                    <div className="mt-1 flex flex-col items-center">
+                    <div className="mt-1">
                       <weatherInfo.icon
                         className={`h-3 w-3 ${weatherInfo.color}`}
                       />
@@ -284,7 +282,7 @@ export function CalendarWidget({
           />
         </div>
 
-        {/* SAĞ: LİSTE */}
+        {/* SAĞ: LİSTE VE SEKMELER */}
         <div className="flex-1 flex flex-col gap-0 overflow-hidden border rounded-xl bg-gray-50 dark:bg-gray-900/50 dark:border-gray-800 relative">
           {/* SAATLİK HAVA DURUMU */}
           {hourlyForecast.length > 0 && (
@@ -310,7 +308,7 @@ export function CalendarWidget({
           )}
 
           <div className="p-3 flex-1 flex flex-col gap-3 overflow-auto">
-            {/* HEADER ve SEKME SEÇİCİ */}
+            {/* SEKME SEÇİCİ (ETKİNLİKLER / GÖREVLER) */}
             <div className="flex justify-between items-center border-b dark:border-gray-700 pb-2">
               <div className="flex gap-4">
                 <button
@@ -489,8 +487,9 @@ export function CalendarWidget({
           </div>
         </div>
 
-        {/* MODAL AYNI KALIYOR (Kod Tekrarı Yapmıyorum, önceki cevaptaki aynısı) */}
+        {/* MODAL */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          {/* ... (Dialog içeriği aynı kalıyor, önceki koddan alınmıştır) */}
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>{t("addEvent")}</DialogTitle>
