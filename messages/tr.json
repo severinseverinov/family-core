@@ -18,12 +18,7 @@
   },
   "Dashboard": {
     "welcome": "Hoş geldin, {name} 👋",
-    "subtitle": "Ailenizin durumu bir bakışta burada. (Konum: {country})",
-    "calendar": "Takvim & Etkinlikler",
-    "kitchen": "Mutfak & Stok",
-    "pets": "Evcil Hayvanlar",
-    "gamification": "Puan & Ödül",
-    "vault": "Aile Kasası"
+    "subtitle": "Ailenizin durumu bir bakışta burada. (Konum: {country})"
   },
   "Calendar": {
     "title": "Takvim & Görevler",
@@ -43,25 +38,15 @@
     "recurrence_monthly": "Her Ay",
     "recurrence_yearly": "Her Yıl",
     "family": "Tüm Aile",
+    "parents": "Sadece Ebeveynler",
+    "member": "Belirli Kişi",
     "private": "Gizli",
     "weekDays": "Hangi Günler?",
     "successAdd": "Eklendi",
     "successTask": "Harika! +{points} Puan kazandın 🎉",
-    "visibility_label": "Kime Gösterilecek?",
-    "visibility_family": "Tüm Aile",
-    "visibility_parents": "Sadece Ebeveynler",
-    "visibility_member": "Belirli Kişi",
-    "select_member": "Kişi Seçiniz",
     "weather": "Hava Durumu",
     "detectingLocation": "Konum bulunuyor...",
-    "locationDenied": "Konum izni yok",
-    "clear": "Açık",
-    "cloudy": "Bulutlu",
-    "fog": "Sisli",
-    "rain": "Yağmurlu",
-    "snow": "Karlı",
-    "thunder": "Fırtına",
-    "drizzle": "Çiseleme"
+    "locationDenied": "Konum izni yok"
   },
   "Pets": {
     "title": "Evcil Hayvanlar",
@@ -91,13 +76,15 @@
     "limit": "Limit",
     "empty": "Dolap boş. Fiş yükle veya manuel ekle.",
     "tabAll": "Tümü",
-    "marketName": "Market (Opsiyonel)",
-    "marketPlaceholder": "Market seç veya yaz...",
+    "shareList": "Listeyi Paylaş",
+    "qrTitle": "Alışveriş Listesi",
+    "qrHelp": "Bu kodu okutarak listeyi telefonunuza aktarabilirsiniz.",
     "sortBy": "Sırala",
     "sortDate": "Tarih (Yeni > Eski)",
     "sortUrgency": "Aciliyet (Önemli > Normal)",
     "sortMarket": "Market (A-Z)",
-    "markUrgent": "Acil Olarak İşaretle"
+    "markUrgent": "Acil Olarak İşaretle",
+    "marketPlaceholder": "Market seç veya yaz..."
   },
   "Gamification": {
     "title": "Puan & Ödül",
@@ -129,5 +116,10 @@
     "empty": "Kasa boş veya yetkiniz yok.",
     "qrTitle": "QR Kodu",
     "qrHelp": "Kameranızla okutarak paylaşın veya bağlanın."
+  },
+  "Login": {
+    "title": "FamilyCore",
+    "subtitle": "Devam etmek için giriş yapın",
+    "googleBtn": "Google ile Giriş Yap"
   }
 }

@@ -18,12 +18,7 @@
   },
   "Dashboard": {
     "welcome": "Welcome back, {name} 👋",
-    "subtitle": "Your family status at a glance. (Location: {country})",
-    "calendar": "Calendar & Tasks",
-    "kitchen": "Kitchen & Stock",
-    "pets": "Pets",
-    "gamification": "Points & Rewards",
-    "vault": "Family Vault"
+    "subtitle": "Your family status at a glance. (Location: {country})"
   },
   "Calendar": {
     "title": "Calendar & Tasks",
@@ -43,25 +38,15 @@
     "recurrence_monthly": "Monthly",
     "recurrence_yearly": "Yearly",
     "family": "Family",
+    "parents": "Parents Only",
+    "member": "Specific Person",
     "private": "Private",
     "weekDays": "Which Days?",
     "successAdd": "Added",
     "successTask": "Great! You earned +{points} Points 🎉",
-    "visibility_label": "Who can see?",
-    "visibility_family": "Entire Family",
-    "visibility_parents": "Parents Only",
-    "visibility_member": "Specific Person",
-    "select_member": "Select Person",
     "weather": "Weather",
     "detectingLocation": "Locating...",
-    "locationDenied": "Location denied",
-    "clear": "Clear",
-    "cloudy": "Cloudy",
-    "fog": "Foggy",
-    "rain": "Rainy",
-    "snow": "Snowy",
-    "thunder": "Thunderstorm",
-    "drizzle": "Drizzle"
+    "locationDenied": "Location denied"
   },
   "Pets": {
     "title": "Pets",
@@ -91,13 +76,15 @@
     "limit": "Limit",
     "empty": "Fridge empty. Scan receipt or add manually.",
     "tabAll": "All",
-    "marketName": "Market (Optional)",
-    "marketPlaceholder": "Select or type market...",
+    "shareList": "Share List",
+    "qrTitle": "Shopping List",
+    "qrHelp": "Scan this code to copy the list to your phone.",
     "sortBy": "Sort By",
     "sortDate": "Date (New > Old)",
     "sortUrgency": "Urgency (High > Low)",
     "sortMarket": "Market (A-Z)",
-    "markUrgent": "Mark as Urgent"
+    "markUrgent": "Mark as Urgent",
+    "marketPlaceholder": "Select or type market..."
   },
   "Gamification": {
     "title": "Points & Rewards",
@@ -129,5 +116,10 @@
     "empty": "Vault empty or unauthorized.",
     "qrTitle": "QR Code",
     "qrHelp": "Scan with your camera to share or connect."
+  },
+  "Login": {
+    "title": "FamilyCore",
+    "subtitle": "Sign in to continue",
+    "googleBtn": "Sign in with Google"
   }
 }

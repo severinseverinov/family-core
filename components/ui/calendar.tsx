@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DayPicker, getDefaultClassNames, DayButton } from "react-day-picker";
+import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker";
 
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -43,65 +43,70 @@ function Calendar({
         ),
         month: cn("space-y-4 w-full", defaultClassNames.month),
 
-        // ÜST BAŞLIK (AY/YIL)
-        caption: cn(
+        // BAŞLIK (AY/YIL)
+        month_caption: cn(
           "flex justify-center pt-1 relative items-center mb-4",
-          defaultClassNames.caption
+          defaultClassNames.month_caption
         ),
         caption_label: cn(
           "text-sm font-medium",
           defaultClassNames.caption_label
         ),
 
-        // OKLAR
+        // NAVİGASYON
         nav: cn("space-x-1 flex items-center", defaultClassNames.nav),
-        nav_button: cn(
+        button_previous: cn(
           buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 z-10"
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 z-10 absolute left-1",
+          defaultClassNames.button_previous
         ),
-        nav_button_previous: "absolute left-1",
-        nav_button_next: "absolute right-1",
+        button_next: cn(
+          buttonVariants({ variant: buttonVariant }),
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 z-10 absolute right-1",
+          defaultClassNames.button_next
+        ),
 
-        // --- TABLO YAPISI (KESİN ÇÖZÜM) ---
-        // table-fixed: Sütunların eşit genişlikte olmasını zorlar. Kaymayı önler.
-        table: "w-full border-collapse space-y-1 table-fixed",
+        // --- TABLO YAPISI (DÜZELTİLDİ) ---
+        // month_grid: Tablonun kendisi (v9'da table yerine month_grid kullanılır)
+        month_grid: "border-collapse space-y-1 table-fixed",
 
-        // BAŞLIK SATIRI (TR) - Flex/Grid YOK
-        head_row: "mb-2",
+        // weekdays: Başlık satırı (tr)
+        weekdays: "mb-2",
 
-        // BAŞLIK HÜCRESİ (TH)
-        head_cell:
-          "text-muted-foreground rounded-md font-normal text-[0.8rem] h-8 align-middle",
+        // weekday: Başlık hücresi (th) - Pzt, Sal...
+        weekday:
+          "text-muted-foreground rounded-md w-12 font-normal text-[0.8rem] h-8 align-middle",
 
-        // GÜN SATIRI (TR) - Flex/Grid YOK
-        row: "mt-2",
+        // week: Gün satırı (tr)
+        week: "mt-2",
 
-        // GÜN HÜCRESİ (TD)
-        // h-14: Yüksekliği artırdık (Hava durumu ikonu için yer)
-        cell: "h-16 p-0 text-center text-sm relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+        // day: Gün hücresi (td) - İçine buton gelecek
+        // h-14 w-12: Yüksekliği artırdık ki hava durumu sığsın
+        day: "h-14 w-12 p-0 text-center text-sm relative [&:has([aria-selected].range-end)]:rounded-r-md [&:has([aria-selected].outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
 
-        // GÜN BUTONU
-        // size-full: Hücreyi tamamen kapla
-        // !rounded-md: Kare yap (önemli)
-        day: cn(
+        // day_button: Gün butonu (td içindeki button)
+        day_button: cn(
           buttonVariants({ variant: "ghost" }),
-          "size-full p-0 font-normal aria-selected:opacity-100 !rounded-md"
+          "size-full p-0 font-normal aria-selected:opacity-100 !rounded-md" // !rounded-md ile KARE zorlaması
         ),
 
         // SEÇİLİ GÜN
-        day_selected:
+        selected:
           "bg-blue-600 text-white hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white !rounded-md",
 
         // BUGÜN
-        day_today:
-          "bg-accent text-accent-foreground !rounded-md border border-blue-200 dark:border-blue-800",
+        today:
+          "bg-accent text-accent-foreground !rounded-md border-rounded-md border-blue-200 dark:border-blue-800",
 
-        day_outside:
+        outside:
           "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
-        day_disabled: "text-muted-foreground opacity-50",
-        day_range_middle:
+
+        disabled: "text-muted-foreground opacity-50",
+
+        range_middle:
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
-        day_hidden: "invisible",
+
+        hidden: "invisible",
         ...classNames,
       }}
       components={{

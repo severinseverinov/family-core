@@ -18,12 +18,7 @@
   },
   "Dashboard": {
     "welcome": "Willkommen zurück, {name} 👋",
-    "subtitle": "Ihr Familienstatus auf einen Blick. (Standort: {country})",
-    "calendar": "Kalender & Ereignisse",
-    "kitchen": "Küche & Vorrat",
-    "pets": "Haustiere",
-    "gamification": "Punkte & Belohnungen",
-    "vault": "Familientresor"
+    "subtitle": "Ihr Familienstatus auf einen Blick. (Standort: {country})"
   },
   "Calendar": {
     "title": "Kalender & Aufgaben",
@@ -43,25 +38,15 @@
     "recurrence_monthly": "Monatlich",
     "recurrence_yearly": "Jährlich",
     "family": "Familie",
+    "parents": "Nur Eltern",
+    "member": "Bestimmte Person",
     "private": "Privat",
     "weekDays": "Welche Tage?",
     "successAdd": "Hinzugefügt",
     "successTask": "Super! Du hast +{points} Punkte verdient 🎉",
-    "visibility_label": "Wer kann das sehen?",
-    "visibility_family": "Ganze Familie",
-    "visibility_parents": "Nur Eltern",
-    "visibility_member": "Bestimmte Person",
-    "select_member": "Person auswählen",
     "weather": "Wetter",
-    "detectingLocation": "Standort wird ermittelt...",
-    "locationDenied": "Standort verweigert",
-    "clear": "Klar",
-    "cloudy": "Bewölkt",
-    "fog": "Nebelig",
-    "rain": "Regnerisch",
-    "snow": "Schneereich",
-    "thunder": "Gewitter",
-    "drizzle": "Nieselregen"
+    "detectingLocation": "Standort ermitteln...",
+    "locationDenied": "Standort verweigert"
   },
   "Pets": {
     "title": "Haustiere",
@@ -91,14 +76,15 @@
     "limit": "Limit",
     "empty": "Kühlschrank leer.",
     "tabAll": "Alle",
-    "scanReceiptBtn": "Beleg scannen & Lager hinzufügen",
-    "marketName": "Markt (Optional)",
-    "marketPlaceholder": "Markt auswählen oder eingeben...",
+    "shareList": "Liste teilen",
+    "qrTitle": "Einkaufsliste",
+    "qrHelp": "Scannen Sie diesen Code, um die Liste zu kopieren.",
     "sortBy": "Sortieren nach",
     "sortDate": "Datum (Neu > Alt)",
     "sortUrgency": "Dringlichkeit (Hoch > Niedrig)",
     "sortMarket": "Markt (A-Z)",
-    "markUrgent": "Als dringend markieren"
+    "markUrgent": "Als dringend markieren",
+    "marketPlaceholder": "Markt wählen oder eingeben..."
   },
   "Gamification": {
     "title": "Punkte & Belohnungen",
@@ -130,5 +116,10 @@
     "empty": "Tresor leer oder unbefugt.",
     "qrTitle": "QR-Code",
     "qrHelp": "Scannen Sie mit Ihrer Kamera, um zu teilen oder zu verbinden."
+  },
+  "Login": {
+    "title": "FamilyCore",
+    "subtitle": "Melden Sie sich an, um fortzufahren",
+    "googleBtn": "Mit Google anmelden"
   }
 }
