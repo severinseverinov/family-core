@@ -56,13 +56,12 @@ import {
   toggleShoppingItem,
   deleteShoppingItem,
   clearCompletedShoppingItems,
-  toggleShoppingItemUrgency, // <-- YENİ
+  toggleShoppingItemUrgency,
 } from "@/app/actions/kitchen";
 import { useTranslations, useLocale } from "next-intl";
 import QRCode from "react-qr-code";
 import { useTheme } from "next-themes";
 
-// ... (İkonlar ve renk fonksiyonları aynı)
 const CATEGORY_ICONS: Record<string, any> = {
   gıda: Utensils,
   yiyecek: Utensils,
@@ -114,7 +113,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
   const [budget, setBudget] = useState(0);
   const [spent, setSpent] = useState(0);
 
-  // YENİ: Sıralama Durumu
   const [sortBy, setSortBy] = useState<"date" | "urgency" | "market">(
     "urgency"
   );
@@ -149,23 +147,18 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
   const sortedShoppingList = useMemo(() => {
     const list = [...shoppingList];
 
-    // Önce "Alınmamışlar" en üstte olsun
     list.sort((a, b) => Number(a.is_checked) - Number(b.is_checked));
 
-    // Sonra seçili kritere göre
     list.sort((a, b) => {
-      if (a.is_checked && b.is_checked) return 0; // Alınanların sırası önemli değil
+      if (a.is_checked && b.is_checked) return 0;
 
       if (sortBy === "urgency") {
-        // Acil Olanlar > Olmayanlar
         if (a.is_urgent !== b.is_urgent) return a.is_urgent ? -1 : 1;
       } else if (sortBy === "market") {
-        // Market İsmine Göre (Boşlar sona)
         if (!a.market_name) return 1;
         if (!b.market_name) return -1;
         return a.market_name.localeCompare(b.market_name);
       } else if (sortBy === "date") {
-        // Tarihe Göre (Yeni > Eski)
         return (
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
@@ -176,7 +169,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     return list;
   }, [shoppingList, sortBy]);
 
-  // --- HANDLERLAR ---
   const handleToggleUrgency = async (id: string, current: boolean) => {
     setShoppingList(prev =>
       prev.map(i => (i.id === id ? { ...i, is_urgent: !current } : i))
@@ -185,7 +177,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     loadData();
   };
 
-  // ... (Diğer handlerlar aynı, yer kazanmak için kısa yazıyorum)
   const handleShareList = () => {
     const activeItems = shoppingList.filter(i => !i.is_checked);
     if (activeItems.length === 0) {
@@ -201,19 +192,62 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     setIsQrOpen(true);
   };
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    /* ... */
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsScanning(true);
+    const fd = new FormData();
+    fd.append("receipt", file);
+    try {
+      const res = await scanReceipt(fd);
+      if (res?.error) toast.error(tCommon("error"));
+      else {
+        toast.success(tCommon("success"));
+        loadData();
+      }
+    } catch {
+      toast.error(tCommon("error"));
+    } finally {
+      setIsScanning(false);
+      e.target.value = "";
+    }
   };
   const handleManualAdd = async (fd: FormData) => {
-    /* ... */
+    const res = await addInventoryItem(fd);
+    if (res?.error) toast.error(tCommon("error"));
+    else {
+      toast.success(tCommon("success"));
+      setIsManualOpen(false);
+      loadData();
+    }
   };
   const handleBudgetUpdate = async (fd: FormData) => {
-    /* ... */
+    const amount = parseFloat(fd.get("budget") as string);
+    const res = await updateBudget(amount);
+    if (res?.error) toast.error(tCommon("error"));
+    else {
+      toast.success(tCommon("success"));
+      setIsBudgetOpen(false);
+      loadData();
+    }
   };
   const handleQuantityChange = async (id: string, change: number) => {
-    /* ... */
+    setInventory(prev =>
+      prev.map(i =>
+        i.id === id ? { ...i, quantity: Math.max(0, i.quantity + change) } : i
+      )
+    );
+    const res = await updateItemQuantity(id, change);
+    if (res?.error) {
+      toast.error(res.error);
+      loadData();
+    } else {
+      loadData();
+    }
   };
   const handleDeleteInventory = async (id: string) => {
-    /* ... */
+    if (!confirm(tCommon("delete") + "?")) return;
+    await deleteInventoryItem(id);
+    loadData();
   };
   const handleAddShoppingItem = async (fd: FormData) => {
     const res = await addToShoppingList(fd);
@@ -221,6 +255,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     else {
       toast.success(tCommon("success"));
       (document.getElementById("shopInput") as HTMLInputElement).value = "";
+      (document.getElementById("marketInput") as HTMLInputElement).value = "";
       loadData();
     }
   };
@@ -243,7 +278,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     loadData();
   };
 
-  // ... (Inventory Gruplama kodları aynı) ...
   const groupedInventory = useMemo(() => {
     const groups: Record<string, any[]> = {};
     inventory.forEach(item => {
@@ -344,17 +378,19 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="h-8 w-8 text-gray-500 hover:text-blue-600"
+                    className="h-8 w-8 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
                     title={t("sortBy")}
                   >
                     <ArrowUpDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-40">
+                {/* DÜZELTME: align="end" kaldırıldı */}
+                <DropdownMenuContent className="w-40">
                   <DropdownMenuItem
                     onClick={() => setSortBy("urgency")}
                     className={cn(
-                      sortBy === "urgency" && "bg-blue-50 text-blue-600"
+                      sortBy === "urgency" &&
+                        "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
                     )}
                   >
                     <Flame className="h-4 w-4 mr-2" /> {t("sortUrgency")}
@@ -362,7 +398,8 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                   <DropdownMenuItem
                     onClick={() => setSortBy("market")}
                     className={cn(
-                      sortBy === "market" && "bg-blue-50 text-blue-600"
+                      sortBy === "market" &&
+                        "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
                     )}
                   >
                     <Store className="h-4 w-4 mr-2" /> {t("sortMarket")}
@@ -370,7 +407,8 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                   <DropdownMenuItem
                     onClick={() => setSortBy("date")}
                     className={cn(
-                      sortBy === "date" && "bg-blue-50 text-blue-600"
+                      sortBy === "date" &&
+                        "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
                     )}
                   >
                     <CalendarIcon className="h-4 w-4 mr-2" /> {t("sortDate")}
@@ -381,7 +419,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-8 w-8 text-gray-500 hover:text-blue-600"
+                className="h-8 w-8 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
                 onClick={handleShareList}
                 title={t("shareList")}
               >
@@ -423,7 +461,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
       </CardHeader>
 
       <CardContent className="flex-1 overflow-hidden flex flex-col gap-3 p-4 pt-0">
-        {/* ... (ENVANTER KISMI AYNI KALIYOR) ... */}
+        {/* ENVANTER KISMI */}
         {mainTab === "inventory" && (
           <>
             {inventory.length > 0 && (
@@ -562,7 +600,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
           </>
         )}
 
-        {/* ALIŞVERİŞ LİSTESİ GÖRÜNÜMÜ (GÜNCELLENDİ: Alev İkonu) */}
+        {/* ALIŞVERİŞ LİSTESİ GÖRÜNÜMÜ */}
         {mainTab === "shopping_list" && (
           <div className="flex flex-col h-full">
             <form
@@ -650,7 +688,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                         {item.product_name}
                         {item.is_urgent && (
                           <span className="text-xs text-red-500 ml-2 font-bold">
-                            🔥 Acil
+                            🔥
                           </span>
                         )}
                       </span>
@@ -669,7 +707,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                   </div>
 
                   <div className="flex items-center gap-1">
-                    {/* ACİLİYET BUTONU */}
                     {!item.is_checked && (
                       <Button
                         size="icon"
@@ -717,7 +754,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
           </div>
         )}
 
-        {/* ... Modallar aynı ... */}
+        {/* Modallar */}
         <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
           <DialogContent>
             <DialogHeader>
