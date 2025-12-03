@@ -115,7 +115,15 @@
     "viewFile": "Dosyayı Görüntüle ↗",
     "empty": "Kasa boş veya yetkiniz yok.",
     "qrTitle": "QR Kodu",
-    "qrHelp": "Kameranızla okutarak paylaşın veya bağlanın."
+    "qrHelp": "Kameranızla okutarak paylaşın veya bağlanın.",
+    "sortDate": "Tarih",
+    "sortName": "İsim",
+    "sortCategory": "Kategori",
+    "visibility": "Görünürlük",
+    "visFamily": "Tüm Aile",
+    "visParents": "Sadece Ebeveynler",
+    "visMember": "Belirli Kişi",
+    "selectMember": "Kişi Seç"
   },
   "Login": {
     "title": "FamilyCore",

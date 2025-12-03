@@ -115,7 +115,15 @@
     "viewFile": "Datei anzeigen ↗",
     "empty": "Tresor leer oder unbefugt.",
     "qrTitle": "QR-Code",
-    "qrHelp": "Scannen Sie mit Ihrer Kamera, um zu teilen oder zu verbinden."
+    "qrHelp": "Scannen Sie mit Ihrer Kamera, um zu teilen oder zu verbinden.",
+    "sortDate": "Datum",
+    "sortName": "Name",
+    "sortCategory": "Kategorie",
+    "visibility": "Sichtbarkeit",
+    "visFamily": "Familie",
+    "visParents": "Nur Eltern",
+    "visMember": "Bestimmte Person",
+    "selectMember": "Person auswählen"
   },
   "Login": {
     "title": "FamilyCore",

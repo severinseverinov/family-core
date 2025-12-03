@@ -115,7 +115,15 @@
     "viewFile": "View File ↗",
     "empty": "Vault empty or unauthorized.",
     "qrTitle": "QR Code",
-    "qrHelp": "Scan with your camera to share or connect."
+    "qrHelp": "Scan with your camera to share or connect.",
+    "sortDate": "Date",
+    "sortName": "Name",
+    "sortCategory": "Category",
+    "visibility": "Visibility",
+    "visFamily": "Family",
+    "visParents": "Parents Only",
+    "visMember": "Specific Person",
+    "selectMember": "Select Person"
   },
   "Login": {
     "title": "FamilyCore",

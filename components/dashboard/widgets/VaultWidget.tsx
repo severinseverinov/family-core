@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,9 @@ import {
   Download,
   QrCode,
   ExternalLink,
+  ArrowUpDown,
+  Users,
+  Shield,
 } from "lucide-react";
 import {
   Dialog,
@@ -25,6 +28,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import {
   getVaultItems,
@@ -33,9 +42,11 @@ import {
   deleteVaultItem,
   getFileUrl,
 } from "@/app/actions/vault";
+import { getFamilyMembers } from "@/app/actions/family"; // Üyeleri çekmek için
 import { useTranslations } from "next-intl";
 import QRCode from "react-qr-code";
 import { useTheme } from "next-themes";
+import { cn } from "@/lib/utils";
 
 const ICONS: Record<string, any> = {
   wifi: Wifi,
@@ -44,7 +55,6 @@ const ICONS: Record<string, any> = {
   other: Lock,
 };
 
-// Maksimum Dosya Boyutu (10 MB)
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export function VaultWidget() {
@@ -53,38 +63,56 @@ export function VaultWidget() {
   const { resolvedTheme } = useTheme();
 
   const [items, setItems] = useState<any[]>([]);
+  const [members, setMembers] = useState<any[]>([]); // Aile üyeleri
   const [loading, setLoading] = useState(true);
 
-  // Modallar
-  const [isOpen, setIsOpen] = useState(false); // Ekleme Modalı
-  const [isQrOpen, setIsQrOpen] = useState(false); // QR Modalı
-  const [isFileOpen, setIsFileOpen] = useState(false); // Dosya Önizleme Modalı
+  const [isOpen, setIsOpen] = useState(false);
+  const [isQrOpen, setIsQrOpen] = useState(false);
+  const [isFileOpen, setIsFileOpen] = useState(false);
 
-  // State
   const [revealedId, setRevealedId] = useState<string | null>(null);
   const [secretValue, setSecretValue] = useState("");
   const [addType, setAddType] = useState<"text" | "file">("text");
 
-  // QR Data
+  // Yeni State'ler
+  const [sortBy, setSortBy] = useState<"date" | "name" | "category">("date");
+  const [visibility, setVisibility] = useState("parents");
+  const [assignedTo, setAssignedTo] = useState<string[]>([]);
+
   const [qrData, setQrData] = useState("");
   const [qrTitle, setQrTitle] = useState("");
-
-  // Dosya Önizleme Data
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewType, setPreviewType] = useState("");
   const [previewTitle, setPreviewTitle] = useState("");
 
-  const loadItems = async () => {
-    const res = await getVaultItems();
-    if (res.items) setItems(res.items);
+  const loadData = async () => {
+    const [itemsRes, membersRes] = await Promise.all([
+      getVaultItems(),
+      getFamilyMembers(),
+    ]);
+    if (itemsRes.items) setItems(itemsRes.items);
+    if (membersRes.members) setMembers(membersRes.members);
     setLoading(false);
   };
 
   useEffect(() => {
-    loadItems();
+    loadData();
   }, []);
 
-  // Form Gönderim ve Boyut Kontrolü
+  // SIRALAMA
+  const sortedItems = useMemo(() => {
+    const list = [...items];
+    list.sort((a, b) => {
+      if (sortBy === "name") return a.title.localeCompare(b.title);
+      if (sortBy === "category") return a.category.localeCompare(b.category);
+      // Date (Default)
+      return (
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    });
+    return list;
+  }, [items, sortBy]);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -92,16 +120,14 @@ export function VaultWidget() {
     if (addType === "file") {
       const file = formData.get("file") as File;
       if (file && file.size > MAX_FILE_SIZE) {
-        toast.error(
-          `Dosya çok büyük! Max 10MB. (${(file.size / 1024 / 1024).toFixed(
-            2
-          )}MB)`
-        );
+        toast.error("Dosya çok büyük (Max 10MB)");
         return;
       }
     }
 
     formData.append("type", addType);
+    if (assignedTo.length > 0)
+      formData.append("assignedTo", assignedTo.join(","));
 
     const promise = addVaultItem(formData);
 
@@ -110,10 +136,10 @@ export function VaultWidget() {
       success: res => {
         if (res?.error) throw new Error(res.error);
         setIsOpen(false);
-        loadItems();
+        loadData();
         return tCommon("success");
       },
-      error: err => err.message || tCommon("error"),
+      error: err => err.message,
     });
   };
 
@@ -138,13 +164,9 @@ export function VaultWidget() {
       toast.error(tCommon("error"));
       return;
     }
-
     let valueToEncode = res.secret;
-    if (item.category === "wifi") {
-      // Wi-Fi QR Formatı
+    if (item.category === "wifi")
       valueToEncode = `WIFI:S:${item.title};T:WPA;P:${res.secret};;`;
-    }
-
     setQrData(valueToEncode);
     setQrTitle(item.title);
     setIsQrOpen(true);
@@ -152,7 +174,6 @@ export function VaultWidget() {
 
   const handlePreviewFile = async (item: any) => {
     const res = await getFileUrl(item.file_path);
-
     if (res.url) {
       setPreviewUrl(res.url);
       setPreviewType(item.mime_type || "");
@@ -167,11 +188,10 @@ export function VaultWidget() {
     if (!confirm(tCommon("delete") + "?")) return;
     await deleteVaultItem(item.id, item.file_path);
     toast.success(tCommon("success"));
-    loadItems();
+    loadData();
   };
 
-  // QR Kod Renkleri (Karanlık Mod Uyumu)
-  const qrBgColor = resolvedTheme === "dark" ? "#111827" : "#ffffff"; // bg-gray-900 veya white
+  const qrBgColor = resolvedTheme === "dark" ? "#111827" : "#ffffff";
   const qrFgColor = resolvedTheme === "dark" ? "#ffffff" : "#000000";
 
   return (
@@ -181,14 +201,41 @@ export function VaultWidget() {
           <Lock className="h-4 w-4" />
           {t("title")}
         </CardTitle>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-8 w-8"
-          onClick={() => setIsOpen(true)}
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
+
+        <div className="flex gap-1">
+          {/* Sıralama Menüsü */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-gray-500 hover:text-red-600"
+              >
+                <ArrowUpDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => setSortBy("date")}>
+                {t("sortDate")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy("name")}>
+                {t("sortName")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy("category")}>
+                {t("sortCategory")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8"
+            onClick={() => setIsOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent className="flex-1 overflow-auto p-4">
@@ -196,11 +243,11 @@ export function VaultWidget() {
           <div className="text-xs text-center text-gray-400">
             {tCommon("loading")}
           </div>
-        ) : items.length === 0 ? (
+        ) : sortedItems.length === 0 ? (
           <div className="text-xs text-center text-gray-400">{t("empty")}</div>
         ) : (
           <div className="space-y-2">
-            {items.map(item => {
+            {sortedItems.map(item => {
               const IconComp =
                 item.type === "file"
                   ? item.mime_type?.includes("image")
@@ -218,9 +265,18 @@ export function VaultWidget() {
                       <IconComp className="h-4 w-4" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate text-gray-900 dark:text-gray-100">
-                        {item.title}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate text-gray-900 dark:text-gray-100">
+                          {item.title}
+                        </p>
+                        {/* Görünürlük İkonu */}
+                        {item.visibility === "family" && (
+                          <Users className="h-3 w-3 text-green-500" />
+                        )}
+                        {item.visibility === "parents" && (
+                          <Shield className="h-3 w-3 text-red-500" />
+                        )}
+                      </div>
                       {item.type === "file" ? (
                         <span
                           className="text-[10px] text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-300 px-1.5 py-0.5 rounded cursor-pointer hover:underline"
@@ -243,25 +299,21 @@ export function VaultWidget() {
                   </div>
 
                   <div className="flex items-center gap-1">
-                    {/* QR Butonu (Sadece metinler için) */}
                     {item.type === "text" && (
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-7 w-7 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
+                        className="h-7 w-7 text-gray-500 hover:text-blue-600"
                         onClick={() => handleShowQr(item)}
-                        title="QR"
                       >
                         <QrCode className="h-3.5 w-3.5" />
                       </Button>
                     )}
-
-                    {/* Göz (Şifre) */}
                     {item.type === "text" && (
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-7 w-7 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                        className="h-7 w-7 text-gray-500 hover:text-gray-700"
                         onClick={() => handleReveal(item.id)}
                       >
                         {revealedId === item.id ? (
@@ -271,24 +323,20 @@ export function VaultWidget() {
                         )}
                       </Button>
                     )}
-
-                    {/* Göz (Dosya) */}
                     {item.type === "file" && (
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-7 w-7 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
+                        className="h-7 w-7 text-gray-500 hover:text-blue-600"
                         onClick={() => handlePreviewFile(item)}
                       >
                         <Eye className="h-3.5 w-3.5" />
                       </Button>
                     )}
-
-                    {/* Sil */}
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="h-7 w-7 text-red-400 hover:text-red-600 dark:hover:text-red-300"
+                      className="h-7 w-7 text-red-400 hover:text-red-600"
                       onClick={() => handleDelete(item)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -345,7 +393,8 @@ export function VaultWidget() {
                   className="cursor-pointer"
                 />
               )}
-              <div className="flex gap-2">
+
+              <div className="grid grid-cols-2 gap-3">
                 <select
                   name="category"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700"
@@ -356,7 +405,49 @@ export function VaultWidget() {
                   <option value="password">Şifre</option>
                   <option value="finance">Finans</option>
                 </select>
+
+                <select
+                  name="visibility"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700"
+                  value={visibility}
+                  onChange={e => setVisibility(e.target.value)}
+                >
+                  <option value="parents">{t("visParents")}</option>
+                  <option value="family">{t("visFamily")}</option>
+                  <option value="member">{t("visMember")}</option>
+                </select>
               </div>
+
+              {/* KİŞİ SEÇİMİ (Sadece 'member' ise) */}
+              {visibility === "member" && (
+                <div className="space-y-1 animate-in fade-in">
+                  <label className="text-xs text-gray-500">
+                    {t("selectMember")}
+                  </label>
+                  <select
+                    multiple
+                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm h-20"
+                    onChange={e =>
+                      setAssignedTo(
+                        Array.from(
+                          e.target.selectedOptions,
+                          option => option.value
+                        )
+                      )
+                    }
+                  >
+                    {members.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.full_name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-gray-400">
+                    Birden fazla seçim için Ctrl/Cmd tuşuna basılı tutun.
+                  </p>
+                </div>
+              )}
+
               <Button
                 type="submit"
                 className="w-full bg-red-600 hover:bg-red-700 text-white"
@@ -367,7 +458,7 @@ export function VaultWidget() {
           </DialogContent>
         </Dialog>
 
-        {/* QR MODALI */}
+        {/* QR MODALI (Aynı) */}
         <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
           <DialogContent className="sm:max-w-sm">
             <DialogHeader>
@@ -394,7 +485,7 @@ export function VaultWidget() {
           </DialogContent>
         </Dialog>
 
-        {/* DOSYA ÖNİZLEME MODALI */}
+        {/* DOSYA ÖNİZLEME (Aynı) */}
         <Dialog open={isFileOpen} onOpenChange={setIsFileOpen}>
           <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 overflow-hidden">
             <DialogHeader className="p-4 border-b dark:border-gray-800 flex flex-row items-center justify-between">
@@ -409,11 +500,10 @@ export function VaultWidget() {
               >
                 <Button size="sm" variant="ghost" className="h-8 gap-2">
                   <ExternalLink className="h-4 w-4" />
-                  {tCommon("save") || "İndir / Aç"}
+                  {tCommon("save") || "İndir"}
                 </Button>
               </a>
             </DialogHeader>
-
             <div className="flex-1 bg-gray-100 dark:bg-black flex items-center justify-center overflow-auto p-4">
               {previewType.startsWith("image/") ? (
                 <img
@@ -421,30 +511,12 @@ export function VaultWidget() {
                   alt={previewTitle}
                   className="max-w-full max-h-full object-contain shadow-lg rounded-md"
                 />
-              ) : previewType === "application/pdf" ? (
+              ) : (
                 <iframe
                   src={previewUrl}
                   className="w-full h-full rounded-md bg-white border-none"
                   title="PDF Preview"
                 />
-              ) : (
-                // Desteklenmeyen formatlar için uyarı
-                <div className="text-center space-y-4">
-                  <div className="bg-gray-200 dark:bg-gray-800 p-6 rounded-full inline-block">
-                    <FileIcon className="h-16 w-16 text-gray-400" />
-                  </div>
-                  <div>
-                    <p className="text-lg font-medium">
-                      Önizleme Kullanılamıyor
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Bu dosya türü tarayıcıda doğrudan gösterilemez.
-                    </p>
-                  </div>
-                  <Button onClick={() => window.open(previewUrl, "_blank")}>
-                    Dosyayı İndir
-                  </Button>
-                </div>
               )}
             </div>
           </DialogContent>
