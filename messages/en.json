@@ -46,7 +46,22 @@
     "private": "Private",
     "weekDays": "Which Days?",
     "successAdd": "Added",
-    "successTask": "Great! You earned +{points} Points 🎉"
+    "successTask": "Great! You earned +{points} Points 🎉",
+    "visibility_label": "Who can see?",
+    "visibility_family": "Entire Family",
+    "visibility_parents": "Parents Only",
+    "visibility_member": "Specific Person",
+    "select_member": "Select Person",
+    "weather": "Weather",
+    "detectingLocation": "Locating...",
+    "locationDenied": "Location denied",
+    "clear": "Clear",
+    "cloudy": "Cloudy",
+    "fog": "Foggy",
+    "rain": "Rainy",
+    "snow": "Snowy",
+    "thunder": "Thunderstorm",
+    "drizzle": "Drizzle"
   },
   "Pets": {
     "title": "Pets",
@@ -75,7 +90,14 @@
     "spent": "Spent",
     "limit": "Limit",
     "empty": "Fridge empty. Scan receipt or add manually.",
-    "tabAll": "All"
+    "tabAll": "All",
+    "marketName": "Market (Optional)",
+    "marketPlaceholder": "Select or type market...",
+    "sortBy": "Sort By",
+    "sortDate": "Date (New > Old)",
+    "sortUrgency": "Urgency (High > Low)",
+    "sortMarket": "Market (A-Z)",
+    "markUrgent": "Mark as Urgent"
   },
   "Gamification": {
     "title": "Points & Rewards",

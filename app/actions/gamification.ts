@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 // 1. Liderlik Tablosunu ve Kullanıcıları Çek
 export async function getLeaderboard() {
   const supabase = await createClient();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -16,6 +17,7 @@ export async function getLeaderboard() {
     .select("family_id")
     .eq("id", user.id)
     .single();
+
   if (!profile?.family_id) return { users: [] };
 
   const { data: users } = await supabase
@@ -30,6 +32,7 @@ export async function getLeaderboard() {
 // 2. Ödülleri Çek
 export async function getRewards() {
   const supabase = await createClient();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -40,6 +43,7 @@ export async function getRewards() {
     .select("family_id")
     .eq("id", user.id)
     .single();
+
   if (!profile?.family_id) return { rewards: [] };
 
   const { data: rewards } = await supabase
@@ -85,7 +89,7 @@ export async function createReward(formData: FormData) {
   return { success: true };
 }
 
-// 4. Ödül Satın Al (Puan Düş)
+// 4. Ödül Satın Al
 export async function redeemReward(
   rewardId: string,
   cost: number,
@@ -95,6 +99,7 @@ export async function redeemReward(
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
   if (!user) return { error: "Hata" };
 
   const { data: profile } = await supabase
@@ -102,7 +107,10 @@ export async function redeemReward(
     .select("current_points")
     .eq("id", user.id)
     .single();
-  if ((profile?.current_points || 0) < cost) return { error: "Yetersiz Puan!" };
+
+  if ((profile?.current_points || 0) < cost) {
+    return { error: "Yetersiz Puan!" };
+  }
 
   const { error } = await supabase.rpc("add_points", {
     target_user_id: user.id,
@@ -110,12 +118,12 @@ export async function redeemReward(
     reason: `Ödül alındı: ${rewardTitle}`,
   });
 
-  if (error) return { error: error.message };
+  if (error) return { error: "İşlem başarısız: " + error.message };
   revalidatePath("/dashboard");
   return { success: true };
 }
 
-// 5. Puan Ver (Manuel)
+// 5. Puan Ver
 export async function givePoints(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -128,8 +136,10 @@ export async function givePoints(formData: FormData) {
     .select("role")
     .eq("id", user.id)
     .single();
-  if (!["owner", "admin"].includes(adminProfile?.role || ""))
-    return { error: "Yetkisiz işlem" };
+
+  if (!["owner", "admin"].includes(adminProfile?.role || "")) {
+    return { error: "Sadece ebeveynler puan verebilir." };
+  }
 
   const targetUserId = formData.get("targetUserId") as string;
   const amount = parseInt(formData.get("amount") as string);
@@ -143,7 +153,7 @@ export async function givePoints(formData: FormData) {
     reason: reason,
   });
 
-  if (error) return { error: "İşlem başarısız: " + error.message };
+  if (error) return { error: "Puan verilemedi: " + error.message };
   revalidatePath("/dashboard");
   return { success: true };
 }
@@ -161,11 +171,14 @@ export async function getPointHistory() {
     .select("family_id")
     .eq("id", user.id)
     .single();
+
   if (!profile?.family_id) return { history: [] };
 
   const { data: history } = await supabase
     .from("point_history")
-    .select(`id, amount, description, created_at, profiles (full_name)`)
+    .select(
+      `id, amount, description, created_at, profiles (full_name, avatar_url)`
+    )
     .eq("family_id", profile.family_id)
     .order("created_at", { ascending: false })
     .limit(15);
@@ -173,11 +186,7 @@ export async function getPointHistory() {
   return { history: history || [] };
 }
 
-// --------------------------------------------------------
-// YENİ EKLENENLER: PUAN CETVELİ (RULES)
-// --------------------------------------------------------
-
-// 7. Puan Kurallarını Getir
+// 7. Puan Kurallarını Getir (GÜNCELLENDİ: Yeni alanlar)
 export async function getPointRules() {
   const supabase = await createClient();
   const {
@@ -201,7 +210,7 @@ export async function getPointRules() {
   return { rules: rules || [] };
 }
 
-// 8. Yeni Kural Ekle
+// 8. Yeni Kural Ekle (GÜNCELLENDİ: Frequency ve Recurrence Days)
 export async function createPointRule(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -221,11 +230,20 @@ export async function createPointRule(formData: FormData) {
 
   const title = formData.get("title") as string;
   const points = parseInt(formData.get("points") as string);
+  const frequency = (formData.get("frequency") as string) || "none";
+
+  // Günleri al
+  const recurrenceDaysStr = formData.get("recurrence_days") as string;
+  const recurrence_days = recurrenceDaysStr
+    ? recurrenceDaysStr.split(",").map(Number)
+    : null;
 
   const { error } = await supabase.from("point_rules").insert({
     family_id: profile.family_id,
     title,
     points,
+    frequency,
+    recurrence_days,
   });
 
   if (error) return { error: error.message };

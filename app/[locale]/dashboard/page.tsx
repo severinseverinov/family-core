@@ -20,6 +20,7 @@ import {
   getPointHistory,
   getPointRules,
 } from "@/app/actions/gamification";
+import { getFamilyMembers } from "@/app/actions/family"; // <-- EKLENDİ
 
 export default async function Dashboard() {
   const t = await getTranslations("Dashboard");
@@ -32,19 +33,17 @@ export default async function Dashboard() {
   } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
 
-  // 2. Profil ve Aile Kontrolü (HATA BURADAYDI - EKSİKTİ)
+  // 2. Profil ve Aile Kontrolü
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", user.id)
     .maybeSingle();
 
-  // Profil yoksa (Hata durumu)
   if (!profile) {
     return (
       <div className="flex h-screen items-center justify-center flex-col gap-4">
         <h1 className="text-xl font-bold text-red-600">Profil Bulunamadı</h1>
-        <p className="text-gray-500">Lütfen çıkış yapıp tekrar deneyin.</p>
         <form action={signOut}>
           <button className="bg-black text-white px-4 py-2 rounded">
             Çıkış Yap
@@ -54,7 +53,6 @@ export default async function Dashboard() {
     );
   }
 
-  // Aileye üye değilse -> Aile Kurma Ekranı
   if (!profile.family_id) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -67,7 +65,7 @@ export default async function Dashboard() {
   const headersList = await headers();
   const countryCode = headersList.get("x-vercel-ip-country") || "TR";
 
-  // 4. TÜM VERİLERİ SUNUCUDA ÇEK (Parallel Fetching)
+  // 4. TÜM VERİLERİ SUNUCUDA ÇEK
   const [
     holidays,
     dashboardData,
@@ -75,6 +73,7 @@ export default async function Dashboard() {
     rewardsData,
     historyData,
     rulesData,
+    membersData, // <-- Yeni
   ] = await Promise.all([
     getPublicHolidays(countryCode),
     getDashboardItems(),
@@ -82,6 +81,7 @@ export default async function Dashboard() {
     getRewards(),
     getPointHistory(),
     getPointRules(),
+    getFamilyMembers(), // <-- Yeni
   ]);
 
   const userName =
@@ -104,13 +104,14 @@ export default async function Dashboard() {
 
       {/* GRID YERLEŞİMİ */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* SOL SÜTUN (Geniş) */}
+        {/* SOL SÜTUN */}
         <div className="lg:col-span-8 space-y-6">
           {/* 1. Takvim & Görevler */}
           <div className="h-[520px]">
             <CalendarWidget
               initialItems={dashboardData.items || []}
               initialHolidays={holidays}
+              familyMembers={membersData.members || []} // <-- Üyeleri gönderdik
             />
           </div>
 
@@ -120,7 +121,7 @@ export default async function Dashboard() {
           </div>
         </div>
 
-        {/* SAĞ SÜTUN (Dar) */}
+        {/* SAĞ SÜTUN */}
         <div className="lg:col-span-4 space-y-6">
           {/* 3. Oyunlaştırma */}
           <div className="h-[480px]">

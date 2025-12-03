@@ -46,7 +46,22 @@
     "private": "Gizli",
     "weekDays": "Hangi Günler?",
     "successAdd": "Eklendi",
-    "successTask": "Harika! +{points} Puan kazandın 🎉"
+    "successTask": "Harika! +{points} Puan kazandın 🎉",
+    "visibility_label": "Kime Gösterilecek?",
+    "visibility_family": "Tüm Aile",
+    "visibility_parents": "Sadece Ebeveynler",
+    "visibility_member": "Belirli Kişi",
+    "select_member": "Kişi Seçiniz",
+    "weather": "Hava Durumu",
+    "detectingLocation": "Konum bulunuyor...",
+    "locationDenied": "Konum izni yok",
+    "clear": "Açık",
+    "cloudy": "Bulutlu",
+    "fog": "Sisli",
+    "rain": "Yağmurlu",
+    "snow": "Karlı",
+    "thunder": "Fırtına",
+    "drizzle": "Çiseleme"
   },
   "Pets": {
     "title": "Evcil Hayvanlar",
@@ -75,7 +90,14 @@
     "spent": "Harcama",
     "limit": "Limit",
     "empty": "Dolap boş. Fiş yükle veya manuel ekle.",
-    "tabAll": "Tümü"
+    "tabAll": "Tümü",
+    "marketName": "Market (Opsiyonel)",
+    "marketPlaceholder": "Market seç veya yaz...",
+    "sortBy": "Sırala",
+    "sortDate": "Tarih (Yeni > Eski)",
+    "sortUrgency": "Aciliyet (Önemli > Normal)",
+    "sortMarket": "Market (A-Z)",
+    "markUrgent": "Acil Olarak İşaretle"
   },
   "Gamification": {
     "title": "Puan & Ödül",
