@@ -51,14 +51,13 @@ import {
   addInventoryItem,
   deleteInventoryItem,
   updateItemQuantity,
-  scanReceipt,
   updateBudget,
   addToShoppingList,
   toggleShoppingItem,
   deleteShoppingItem,
   clearCompletedShoppingItems,
   toggleShoppingItemUrgency,
-  analyzeReceipt,
+  analyzeReceipt, // <-- DÜZELTME: scanReceipt yerine analyzeReceipt
   saveReceipt,
 } from "@/app/actions/kitchen";
 import { useTranslations, useLocale } from "next-intl";
@@ -115,7 +114,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
   const [shoppingList, setShoppingList] = useState<any[]>([]);
   const [budget, setBudget] = useState(0);
   const [spent, setSpent] = useState(0);
-  const [userCurrency, setUserCurrency] = useState("TL"); // YENİ: Para Birimi State'i
 
   const [sortBy, setSortBy] = useState<"date" | "urgency" | "market">(
     "urgency"
@@ -133,6 +131,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
 
   const [activeInvTab, setActiveInvTab] = useState("ALL");
   const [qrData, setQrData] = useState("");
+  const [userCurrency, setUserCurrency] = useState("TL");
 
   const isAdmin = ["owner", "admin"].includes(userRole);
 
@@ -143,7 +142,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
       setShoppingList(res.shoppingList || []);
       setBudget(res.budget);
       setSpent(res.spent);
-      if (res.currency) setUserCurrency(res.currency); // YENİ: Para birimini güncelle
+      if (res.currency) setUserCurrency(res.currency);
     }
     setLoading(false);
   };
@@ -160,12 +159,12 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     fd.append("receipt", file);
 
     try {
+      // DÜZELTME: scanReceipt yerine analyzeReceipt kullanıldı
       const res = await analyzeReceipt(fd);
 
       if (res?.error) {
         toast.error(res.error);
       } else {
-        // Fişten gelen para birimi yoksa veya boşsa kullanıcının tercihini varsay
         if (!res.data.currency || res.data.currency === "TL") {
           res.data.currency = userCurrency;
         }
@@ -471,7 +470,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
         {mainTab === "inventory" && budget > 0 && (
           <div className="w-full space-y-1">
             <div className="flex justify-between text-[10px] font-medium text-gray-500 dark:text-gray-400">
-              {/* YENİ: {userCurrency} kullanılıyor */}
               <span>
                 {t("spent")}:{" "}
                 {spent.toLocaleString(locale === "tr" ? "tr-TR" : "de-DE")}{" "}
@@ -681,7 +679,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                 <Plus className="h-4 w-4" />
               </Button>
             </form>
-            {/* Liste kodları aynı... */}
+            {/* ... Liste (Aynı) ... */}
             <div className="flex-1 overflow-auto space-y-2 pr-1">
               {shoppingList.length === 0 && (
                 <div className="text-center text-xs text-gray-400 py-6">
@@ -787,7 +785,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
           </div>
         )}
 
-        {/* --- FİŞ ONAY/DÜZENLEME MODALI --- */}
+        {/* ... Modallar (Aynı) ... */}
         <Dialog
           open={isReceiptReviewOpen}
           onOpenChange={setIsReceiptReviewOpen}
@@ -796,7 +794,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
             <DialogHeader>
               <DialogTitle>Fiş Önizleme</DialogTitle>
             </DialogHeader>
-
             {receiptData && (
               <div className="flex-1 overflow-auto space-y-4 p-1">
                 <div className="flex justify-between items-center bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
@@ -822,7 +819,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                       }
                       className="font-bold w-20 h-8 text-right dark:text-white"
                     />
-                    {/* YENİ: PARA BİRİMİ SEÇİMİ */}
                     <select
                       className="bg-transparent border rounded text-sm p-1 dark:bg-gray-700 dark:text-white"
                       value={receiptData.currency || userCurrency}
@@ -840,8 +836,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                     </select>
                   </div>
                 </div>
-
-                {/* ... (Liste aynı) ... */}
                 <div className="space-y-2">
                   <p className="text-xs font-bold text-gray-500 uppercase px-1">
                     Tespit Edilen Ürünler
@@ -908,7 +902,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                 </div>
               </div>
             )}
-
             <DialogFooter>
               <Button
                 variant="outline"
@@ -926,8 +919,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
-        {/* ... Diğer Modallar (Manuel Ekle, Bütçe, Alışveriş Modu, QR) aynı kalacak, sadece {t('price')} ve {userCurrency} ekleyin ... */}
         <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
           <DialogContent>
             <DialogHeader>
@@ -959,9 +950,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium">
-                  {t("price")} ({userCurrency})
-                </label>
+                <label className="text-xs font-medium">{t("price")}</label>
                 <Input name="price" type="number" step="0.01" />
               </div>
               <div className="space-y-1">
@@ -978,7 +967,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
             </form>
           </DialogContent>
         </Dialog>
-        {/* Diğer modalları aynı bırakın */}
         <Dialog open={isBudgetOpen} onOpenChange={setIsBudgetOpen}>
           <DialogContent>
             <DialogHeader>
