@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "../globals.css"; // CSS yolu bir üste çıktı
+import "../globals.css"; // CSS yoluna dikkat (2 üst klasörde olabilir)
 import { Navbar } from "@/components/Navbar";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { ThemeColorProvider } from "@/components/providers/theme-color-provider"; // <-- İMPORT ET
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { notFound } from "next/navigation";
-import { ThemeColorProvider } from "@/components/providers/theme-color-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,21 +33,20 @@ export default async function RootLayout({
 }) {
   const { locale } = await params;
 
-  // Geçerli dillerden biri mi kontrol et
   if (!["en", "tr", "de"].includes(locale)) {
     notFound();
   }
 
-  // Mesajları sunucudan al
   const messages = await getMessages();
 
   return (
-    <html lang={locale}>
+    <html lang={locale} suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            {/* BURASI ÇOK ÖNEMLİ: ThemeColorProvider EKLENDİ */}
             <ThemeColorProvider>
               <Navbar />
               {children}

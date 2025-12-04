@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Palette, Moon, Sun, Monitor, Globe, Coins, Check } from "lucide-react";
+import { Palette, Moon, Sun, Monitor, Check } from "lucide-react"; // Check eklendi
 import { useTheme } from "next-themes";
 import { useThemeColor } from "@/components/providers/theme-color-provider";
 import { toast } from "sonner";
@@ -19,6 +18,7 @@ const COLORS = [
   { name: "zinc", label: "Gri", color: "bg-zinc-500" },
 ];
 
+// Props opsiyonel yapıldı
 export function AppearanceWidget() {
   const { setTheme, theme } = useTheme();
   const { themeColor, setThemeColor } = useThemeColor();
@@ -32,8 +32,7 @@ export function AppearanceWidget() {
     if (res?.error) {
       toast.error("Hata oluştu");
     } else {
-      toast.success("Tema ayarlar kaydedildi!");
-
+      toast.success("Görünüm ayarları kaydedildi!");
       router.refresh();
     }
   };
@@ -42,7 +41,7 @@ export function AppearanceWidget() {
     <Card>
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
-          <Palette className="h-5 w-5" /> Görünüm & Tercihler
+          <Palette className="h-5 w-5" /> Görünüm & Tema
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-8">

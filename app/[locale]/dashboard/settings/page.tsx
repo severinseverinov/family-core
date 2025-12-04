@@ -1,9 +1,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { MembersWidget } from "@/components/dashboard/settings/MembersWidget";
-import { AppearanceWidget } from "@/components/dashboard/settings/AppearanceWidget"; // <-- YENİ
+import { AppearanceWidget } from "@/components/dashboard/settings/AppearanceWidget";
 import { getFamilyMembers, getInvitations } from "@/app/actions/family";
-import { PreferencesWidget } from "@/components/dashboard/settings/PreferencesWidget"; // <-- YENİ
+import { PreferencesWidget } from "@/components/dashboard/settings/PreferencesWidget";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -27,7 +27,7 @@ export default async function SettingsPage() {
   ]);
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
           Ayarlar
@@ -38,7 +38,7 @@ export default async function SettingsPage() {
       </div>
 
       <div className="grid gap-8 md:grid-cols-2">
-        {/* SOL: ÜYE YÖNETİMİ */}
+        {/* SOL: ÜYE YÖNETİMİ (Tam Genişlik) */}
         <div className="space-y-4 md:col-span-2">
           <h2 className="text-xl font-semibold border-b pb-2 text-gray-800 dark:text-gray-200">
             Aile Üyeleri
@@ -51,20 +51,22 @@ export default async function SettingsPage() {
           />
         </div>
 
-        {/* SAĞ: TERCİHLER (YENİ) */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold border-b pb-2 text-gray-800 dark:text-gray-200">
-            Uygulama Ayarları
-          </h2>
-          <PreferencesWidget />
-        </div>
+        <div className="md:col-span-2 flex flex-col md:flex-row gap-6">
+          {/* Uygulama Ayarları */}
+          <div className="space-y-4 flex-1 w-full">
+            <h2 className="text-xl font-semibold border-b pb-2 text-gray-800 dark:text-gray-200">
+              Uygulama Ayarları
+            </h2>
+            <PreferencesWidget />
+          </div>
 
-        {/* DİĞER: HESAP */}
-        <div className="space-y-4 lg:col-span-2">
-          <h2 className="text-xl font-semibold border-b pb-2 text-gray-800 dark:text-gray-200">
-            Görünüm
-          </h2>
-          <AppearanceWidget />
+          {/* Görünüm */}
+          <div className="space-y-4 flex-1 w-full">
+            <h2 className="text-xl font-semibold border-b pb-2 text-gray-800 dark:text-gray-200">
+              Görünüm
+            </h2>
+            <AppearanceWidget />
+          </div>
         </div>
       </div>
     </div>
