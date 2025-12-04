@@ -57,14 +57,13 @@ import {
   deleteShoppingItem,
   clearCompletedShoppingItems,
   toggleShoppingItemUrgency,
-  analyzeReceipt, // <-- YENİ
-  saveReceipt, // <-- YENİ
+  analyzeReceipt,
+  saveReceipt,
 } from "@/app/actions/kitchen";
 import { useTranslations, useLocale } from "next-intl";
 import QRCode from "react-qr-code";
 import { useTheme } from "next-themes";
 
-// ... (İkonlar ve Helperlar aynı)
 const CATEGORY_ICONS: Record<string, any> = {
   gıda: Utensils,
   yiyecek: Utensils,
@@ -126,8 +125,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
   const [isBudgetOpen, setIsBudgetOpen] = useState(false);
   const [isShoppingModeOpen, setIsShoppingModeOpen] = useState(false);
   const [isQrOpen, setIsQrOpen] = useState(false);
-
-  // YENİ: Fiş Önizleme Modalı
   const [isReceiptReviewOpen, setIsReceiptReviewOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
 
@@ -151,22 +148,17 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     loadData();
   }, []);
 
-  // --- FİŞ YÜKLEME VE ANALİZ ---
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsScanning(true);
     const fd = new FormData();
     fd.append("receipt", file);
-
     try {
-      // 1. Sadece Analiz Et (Kaydetme)
       const res = await analyzeReceipt(fd);
-
       if (res?.error) {
         toast.error(res.error);
       } else {
-        // 2. Sonucu State'e at ve Onay Penceresini Aç
         setReceiptData(res.data);
         setIsReceiptReviewOpen(true);
       }
@@ -178,10 +170,9 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     }
   };
 
-  // --- FİŞ ONAYLAMA VE KAYDETME ---
   const handleConfirmReceipt = async () => {
     if (!receiptData) return;
-    setIsScanning(true); // Loading göster
+    setIsScanning(true);
     try {
       await saveReceipt(receiptData);
       toast.success(tCommon("success"));
@@ -195,26 +186,13 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     }
   };
 
-  // Fiş Düzenleme (Miktar/Fiyat değiştirme)
   const updateReceiptItem = (index: number, field: string, value: any) => {
     const newData = { ...receiptData };
     newData.items[index][field] = value;
-
-    // Toplam tutarı güncelle (Basitçe)
-    if (field === "unit_price" || field === "quantity") {
-      let newTotal = 0;
-      newData.items.forEach((item: any) => {
-        newTotal +=
-          parseFloat(item.unit_price || 0) * parseFloat(item.quantity || 0);
-      });
-      // Eğer AI toplamı bulduysa onu bozmayalım ama sapma çoksa uyarabiliriz.
-      // Şimdilik sadece item'ı güncelleyelim.
-    }
-
     setReceiptData(newData);
   };
 
-  // ... (Diğer handlerlar - Aynı) ...
+  // ... (Diğer handlerlar - Kısa) ...
   const sortedShoppingList = useMemo(() => {
     const list = [...shoppingList];
     list.sort((a, b) => Number(a.is_checked) - Number(b.is_checked));
@@ -364,6 +342,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
 
   return (
     <Card className="h-full flex flex-col border-orange-100 bg-orange-50/30 dark:bg-orange-900/10 dark:border-orange-900/30 shadow-sm relative">
+      {/* ... (Header ve Tabs kısmı aynı) ... */}
       <CardHeader className="pb-2 flex flex-col gap-3 space-y-0">
         <div className="flex items-center justify-between w-full">
           <div className="flex gap-2 bg-white/50 p-1 rounded-lg dark:bg-gray-800/50">
@@ -391,7 +370,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
               {shoppingList.filter(i => !i.is_checked).length})
             </button>
           </div>
-
           {mainTab === "inventory" && (
             <div className="flex gap-1">
               {isAdmin && (
@@ -480,7 +458,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
             </div>
           )}
         </div>
-
         {mainTab === "inventory" && budget > 0 && (
           <div className="w-full space-y-1">
             <div className="flex justify-between text-[10px] font-medium text-gray-500 dark:text-gray-400">
@@ -568,7 +545,8 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                                     </span>
                                     {item.last_price > 0 && (
                                       <span className="text-green-600 dark:text-green-400">
-                                        {item.last_price}₺
+                                        {item.last_price}{" "}
+                                        {item.last_price_currency || "TL"}
                                       </span>
                                     )}
                                   </div>
@@ -646,7 +624,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
         {/* ALIŞVERİŞ LİSTESİ GÖRÜNÜMÜ */}
         {mainTab === "shopping_list" && (
           <div className="flex flex-col h-full">
-            {/* ... (Form kısmı aynı) */}
+            {/* ... (Alışveriş listesi aynı) ... */}
             <form
               action={async fd => {
                 await handleAddShoppingItem(fd);
@@ -690,7 +668,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                 <Plus className="h-4 w-4" />
               </Button>
             </form>
-
             <div className="flex-1 overflow-auto space-y-2 pr-1">
               {shoppingList.length === 0 && (
                 <div className="text-center text-xs text-gray-400 py-6">
@@ -796,9 +773,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
           </div>
         )}
 
-        {/* --- MODALLAR --- */}
-
-        {/* YENİ: FİŞ ONAY/DÜZENLEME MODALI */}
+        {/* --- YENİ: FİŞ ÖNİZLEME VE DÜZENLEME MODALI --- */}
         <Dialog
           open={isReceiptReviewOpen}
           onOpenChange={setIsReceiptReviewOpen}
@@ -819,10 +794,9 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                         shop_name: e.target.value,
                       })
                     }
-                    className="font-bold border-none bg-transparent w-1/2"
+                    className="font-bold border-none bg-transparent w-1/2 dark:text-white"
                   />
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">Toplam:</span>
                     <Input
                       type="number"
                       value={receiptData.total_amount}
@@ -832,9 +806,24 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                           total_amount: parseFloat(e.target.value),
                         })
                       }
-                      className="font-bold w-20 h-8 text-right"
+                      className="font-bold w-20 h-8 text-right dark:text-white"
                     />
-                    <span className="text-sm font-bold">TL</span>
+                    {/* PARA BİRİMİ SEÇİMİ */}
+                    <select
+                      className="bg-transparent border rounded text-sm p-1 dark:bg-gray-700 dark:text-white"
+                      value={receiptData.currency || "TL"}
+                      onChange={e =>
+                        setReceiptData({
+                          ...receiptData,
+                          currency: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="TL">TL</option>
+                      <option value="EUR">€</option>
+                      <option value="USD">$</option>
+                      <option value="GBP">£</option>
+                    </select>
                   </div>
                 </div>
 
@@ -853,7 +842,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                           onChange={e =>
                             updateReceiptItem(idx, "name", e.target.value)
                           }
-                          className="h-8 text-sm border-none shadow-none p-0 focus-visible:ring-0"
+                          className="h-8 text-sm border-none shadow-none p-0 focus-visible:ring-0 dark:text-white"
                         />
                         <div className="flex gap-2 text-xs text-gray-400">
                           <input
@@ -883,7 +872,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                               parseFloat(e.target.value)
                             )
                           }
-                          className="h-8 text-xs text-right"
+                          className="h-8 text-xs text-right dark:text-white"
                           placeholder="Fiyat"
                         />
                       </div>
@@ -923,7 +912,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
           </DialogContent>
         </Dialog>
 
-        {/* ... Diğer Modallar (Manuel Ekle, Bütçe, Alışveriş Modu, QR) aynı kalacak ... */}
+        {/* ... (Diğer Modallar aynı) ... */}
         <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
           <DialogContent>
             <DialogHeader>
