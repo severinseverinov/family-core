@@ -43,6 +43,7 @@ import {
   Flame,
   ArrowUpDown,
   Calendar as CalendarIcon,
+  Edit2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -50,18 +51,20 @@ import {
   addInventoryItem,
   deleteInventoryItem,
   updateItemQuantity,
-  scanReceipt,
   updateBudget,
   addToShoppingList,
   toggleShoppingItem,
   deleteShoppingItem,
   clearCompletedShoppingItems,
   toggleShoppingItemUrgency,
+  analyzeReceipt, // <-- YENİ
+  saveReceipt, // <-- YENİ
 } from "@/app/actions/kitchen";
 import { useTranslations, useLocale } from "next-intl";
 import QRCode from "react-qr-code";
 import { useTheme } from "next-themes";
 
+// ... (İkonlar ve Helperlar aynı)
 const CATEGORY_ICONS: Record<string, any> = {
   gıda: Utensils,
   yiyecek: Utensils,
@@ -123,6 +126,11 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
   const [isBudgetOpen, setIsBudgetOpen] = useState(false);
   const [isShoppingModeOpen, setIsShoppingModeOpen] = useState(false);
   const [isQrOpen, setIsQrOpen] = useState(false);
+
+  // YENİ: Fiş Önizleme Modalı
+  const [isReceiptReviewOpen, setIsReceiptReviewOpen] = useState(false);
+  const [receiptData, setReceiptData] = useState<any>(null);
+
   const [activeInvTab, setActiveInvTab] = useState("ALL");
   const [qrData, setQrData] = useState("");
 
@@ -143,15 +151,75 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     loadData();
   }, []);
 
-  // --- SIRALAMA MANTIĞI ---
+  // --- FİŞ YÜKLEME VE ANALİZ ---
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsScanning(true);
+    const fd = new FormData();
+    fd.append("receipt", file);
+
+    try {
+      // 1. Sadece Analiz Et (Kaydetme)
+      const res = await analyzeReceipt(fd);
+
+      if (res?.error) {
+        toast.error(res.error);
+      } else {
+        // 2. Sonucu State'e at ve Onay Penceresini Aç
+        setReceiptData(res.data);
+        setIsReceiptReviewOpen(true);
+      }
+    } catch {
+      toast.error(tCommon("error"));
+    } finally {
+      setIsScanning(false);
+      e.target.value = "";
+    }
+  };
+
+  // --- FİŞ ONAYLAMA VE KAYDETME ---
+  const handleConfirmReceipt = async () => {
+    if (!receiptData) return;
+    setIsScanning(true); // Loading göster
+    try {
+      await saveReceipt(receiptData);
+      toast.success(tCommon("success"));
+      setIsReceiptReviewOpen(false);
+      setReceiptData(null);
+      loadData();
+    } catch {
+      toast.error(tCommon("error"));
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  // Fiş Düzenleme (Miktar/Fiyat değiştirme)
+  const updateReceiptItem = (index: number, field: string, value: any) => {
+    const newData = { ...receiptData };
+    newData.items[index][field] = value;
+
+    // Toplam tutarı güncelle (Basitçe)
+    if (field === "unit_price" || field === "quantity") {
+      let newTotal = 0;
+      newData.items.forEach((item: any) => {
+        newTotal +=
+          parseFloat(item.unit_price || 0) * parseFloat(item.quantity || 0);
+      });
+      // Eğer AI toplamı bulduysa onu bozmayalım ama sapma çoksa uyarabiliriz.
+      // Şimdilik sadece item'ı güncelleyelim.
+    }
+
+    setReceiptData(newData);
+  };
+
+  // ... (Diğer handlerlar - Aynı) ...
   const sortedShoppingList = useMemo(() => {
     const list = [...shoppingList];
-
     list.sort((a, b) => Number(a.is_checked) - Number(b.is_checked));
-
     list.sort((a, b) => {
       if (a.is_checked && b.is_checked) return 0;
-
       if (sortBy === "urgency") {
         if (a.is_urgent !== b.is_urgent) return a.is_urgent ? -1 : 1;
       } else if (sortBy === "market") {
@@ -165,7 +233,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
       }
       return 0;
     });
-
     return list;
   }, [shoppingList, sortBy]);
 
@@ -176,7 +243,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     await toggleShoppingItemUrgency(id, !current);
     loadData();
   };
-
   const handleShareList = () => {
     const activeItems = shoppingList.filter(i => !i.is_checked);
     if (activeItems.length === 0) {
@@ -190,26 +256,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
       .join("\n");
     setQrData(listText);
     setIsQrOpen(true);
-  };
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsScanning(true);
-    const fd = new FormData();
-    fd.append("receipt", file);
-    try {
-      const res = await scanReceipt(fd);
-      if (res?.error) toast.error(tCommon("error"));
-      else {
-        toast.success(tCommon("success"));
-        loadData();
-      }
-    } catch {
-      toast.error(tCommon("error"));
-    } finally {
-      setIsScanning(false);
-      e.target.value = "";
-    }
   };
   const handleManualAdd = async (fd: FormData) => {
     const res = await addInventoryItem(fd);
@@ -372,7 +418,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
           )}
           {mainTab === "shopping_list" && (
             <div className="flex gap-1 items-center">
-              {/* SIRALAMA MENÜSÜ */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -384,7 +429,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                     <ArrowUpDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                {/* DÜZELTME: align="end" kaldırıldı */}
                 <DropdownMenuContent className="w-40">
                   <DropdownMenuItem
                     onClick={() => setSortBy("urgency")}
@@ -415,7 +459,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-
               <Button
                 size="icon"
                 variant="ghost"
@@ -461,7 +504,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
       </CardHeader>
 
       <CardContent className="flex-1 overflow-hidden flex flex-col gap-3 p-4 pt-0">
-        {/* ENVANTER KISMI */}
+        {/* ENVANTER İÇERİĞİ */}
         {mainTab === "inventory" && (
           <>
             {inventory.length > 0 && (
@@ -603,6 +646,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
         {/* ALIŞVERİŞ LİSTESİ GÖRÜNÜMÜ */}
         {mainTab === "shopping_list" && (
           <div className="flex flex-col h-full">
+            {/* ... (Form kısmı aynı) */}
             <form
               action={async fd => {
                 await handleAddShoppingItem(fd);
@@ -688,7 +732,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                         {item.product_name}
                         {item.is_urgent && (
                           <span className="text-xs text-red-500 ml-2 font-bold">
-                            🔥
+                            🔥 Acil
                           </span>
                         )}
                       </span>
@@ -705,7 +749,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                       )}
                     </div>
                   </div>
-
                   <div className="flex items-center gap-1">
                     {!item.is_checked && (
                       <Button
@@ -740,7 +783,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                 </div>
               ))}
             </div>
-
             {shoppingList.some(i => i.is_checked) && (
               <Button
                 variant="ghost"
@@ -754,7 +796,134 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
           </div>
         )}
 
-        {/* Modallar */}
+        {/* --- MODALLAR --- */}
+
+        {/* YENİ: FİŞ ONAY/DÜZENLEME MODALI */}
+        <Dialog
+          open={isReceiptReviewOpen}
+          onOpenChange={setIsReceiptReviewOpen}
+        >
+          <DialogContent className="sm:max-w-lg h-[80vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Fiş Önizleme</DialogTitle>
+            </DialogHeader>
+
+            {receiptData && (
+              <div className="flex-1 overflow-auto space-y-4 p-1">
+                <div className="flex justify-between items-center bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
+                  <Input
+                    value={receiptData.shop_name}
+                    onChange={e =>
+                      setReceiptData({
+                        ...receiptData,
+                        shop_name: e.target.value,
+                      })
+                    }
+                    className="font-bold border-none bg-transparent w-1/2"
+                  />
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">Toplam:</span>
+                    <Input
+                      type="number"
+                      value={receiptData.total_amount}
+                      onChange={e =>
+                        setReceiptData({
+                          ...receiptData,
+                          total_amount: parseFloat(e.target.value),
+                        })
+                      }
+                      className="font-bold w-20 h-8 text-right"
+                    />
+                    <span className="text-sm font-bold">TL</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-gray-500 uppercase px-1">
+                    Tespit Edilen Ürünler
+                  </p>
+                  {receiptData.items.map((item: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2 p-2 border rounded bg-white dark:bg-gray-900 dark:border-gray-700"
+                    >
+                      <div className="flex-1">
+                        <Input
+                          value={item.name}
+                          onChange={e =>
+                            updateReceiptItem(idx, "name", e.target.value)
+                          }
+                          className="h-8 text-sm border-none shadow-none p-0 focus-visible:ring-0"
+                        />
+                        <div className="flex gap-2 text-xs text-gray-400">
+                          <input
+                            className="bg-transparent w-12 border-b border-gray-200 focus:outline-none"
+                            value={item.quantity}
+                            type="number"
+                            onChange={e =>
+                              updateReceiptItem(
+                                idx,
+                                "quantity",
+                                parseFloat(e.target.value)
+                              )
+                            }
+                          />
+                          <span>{item.unit || "adet"}</span>
+                        </div>
+                      </div>
+                      <div className="w-20">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={item.unit_price || 0}
+                          onChange={e =>
+                            updateReceiptItem(
+                              idx,
+                              "unit_price",
+                              parseFloat(e.target.value)
+                            )
+                          }
+                          className="h-8 text-xs text-right"
+                          placeholder="Fiyat"
+                        />
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-red-400"
+                        onClick={() => {
+                          const newData = { ...receiptData };
+                          newData.items.splice(idx, 1);
+                          setReceiptData(newData);
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsReceiptReviewOpen(false)}
+              >
+                {tCommon("cancel")}
+              </Button>
+              <Button
+                onClick={handleConfirmReceipt}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                disabled={isScanning}
+              >
+                {isScanning ? t("scanning") : "Onayla ve Kaydet"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ... Diğer Modallar (Manuel Ekle, Bütçe, Alışveriş Modu, QR) aynı kalacak ... */}
         <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
           <DialogContent>
             <DialogHeader>
@@ -824,7 +993,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
             </form>
           </DialogContent>
         </Dialog>
-
         <Dialog open={isShoppingModeOpen} onOpenChange={setIsShoppingModeOpen}>
           <DialogContent className="sm:max-w-md h-[80vh] flex flex-col">
             <DialogHeader>
@@ -834,12 +1002,12 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
               </DialogTitle>
             </DialogHeader>
             <div className="flex-1 overflow-auto py-4 space-y-4">
-              {sortedShoppingList.length === 0 && (
+              {shoppingList.length === 0 && (
                 <p className="text-center text-gray-500">
                   Listeniz boş, iyi alışverişler!
                 </p>
               )}
-              {sortedShoppingList.map(item => (
+              {shoppingList.map(item => (
                 <div
                   key={item.id}
                   className={cn(
@@ -900,7 +1068,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
             </div>
           </DialogContent>
         </Dialog>
-
         <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
           <DialogContent className="sm:max-w-sm">
             <DialogHeader>

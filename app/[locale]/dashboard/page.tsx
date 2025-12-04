@@ -114,7 +114,7 @@ export default async function Dashboard() {
               userId={user.id}
             />
           </div>
-          <div className="h-[400px]">
+          <div className="h-[605px]">
             <KitchenWidget userRole={userRole} />
           </div>
         </div>
