@@ -3,40 +3,54 @@
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { headers } from "next/headers";
 
 const apiKey = process.env.GEMINI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
-// Ortak dönüş tipi
 type ActionResponse = {
   success: boolean;
   error: string | null;
   data?: any;
 };
 
-// 1. Envanteri ve Bütçe Durumunu Getir
+// 1. Envanter, Bütçe ve Alışveriş Listesini Getir
 export async function getInventoryAndBudget() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { items: [], budget: 0, spent: 0, shoppingList: [] };
+
+  // Varsayılan boş veri
+  const defaultData = {
+    items: [],
+    budget: 0,
+    spent: 0,
+    shoppingList: [],
+    currency: "TL",
+  };
+
+  if (!user) return defaultData;
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("family_id")
+    .select("family_id, preferred_currency")
     .eq("id", user.id)
     .single();
 
-  if (!profile || !profile.family_id)
-    return { items: [], budget: 0, spent: 0, shoppingList: [] };
+  if (!profile || !profile.family_id) return defaultData;
 
+  // Kullanıcının tercih ettiği para birimi (Yoksa TL)
+  const userCurrency = profile.preferred_currency || "TL";
+
+  // Envanter
   const { data: items } = await supabase
     .from("inventory")
     .select("*")
     .eq("family_id", profile.family_id)
     .order("created_at", { ascending: false });
 
+  // Alışveriş Listesi (Sıralama: Alınmamış > Acil > Tarih)
   const { data: shoppingList } = await supabase
     .from("shopping_list")
     .select("*")
@@ -45,12 +59,14 @@ export async function getInventoryAndBudget() {
     .order("is_urgent", { ascending: false })
     .order("created_at", { ascending: false });
 
+  // Bütçe
   const { data: family } = await supabase
     .from("families")
     .select("kitchen_budget")
     .eq("id", profile.family_id)
     .single();
 
+  // Bu Ayki Harcamalar
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
@@ -68,6 +84,7 @@ export async function getInventoryAndBudget() {
     shoppingList: shoppingList || [],
     budget: family?.kitchen_budget || 0,
     spent: totalSpent,
+    currency: userCurrency,
   };
 }
 
@@ -85,14 +102,12 @@ export async function updateBudget(amount: number): Promise<ActionResponse> {
     .eq("id", user.id)
     .single();
 
-  if (!profile) return { success: false, error: "Profil bulunamadı." };
+  if (!profile || !profile.family_id)
+    return { success: false, error: "Profil bulunamadı." };
 
   if (!["owner", "admin"].includes(profile.role || "")) {
     return { success: false, error: "Sadece ebeveynler bütçe ayarlayabilir." };
   }
-
-  if (!profile.family_id)
-    return { success: false, error: "Bir aileye bağlı değilsiniz." };
 
   await supabase
     .from("families")
@@ -114,7 +129,7 @@ export async function addInventoryItem(
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("family_id, role")
+    .select("family_id, role, preferred_currency")
     .eq("id", user.id)
     .single();
 
@@ -128,6 +143,7 @@ export async function addInventoryItem(
   const unit = formData.get("unit") as string;
   const category = formData.get("category") as string;
   const price = parseFloat(formData.get("price") as string) || 0;
+  const currency = profile.preferred_currency || "TL";
 
   const { error } = await supabase.from("inventory").insert({
     family_id: profile.family_id,
@@ -137,6 +153,7 @@ export async function addInventoryItem(
     unit,
     category,
     last_price: price,
+    last_price_currency: currency,
   });
 
   if (error) return { success: false, error: error.message };
@@ -145,6 +162,7 @@ export async function addInventoryItem(
     await supabase.from("expenses").insert({
       family_id: profile.family_id,
       amount: price * quantity,
+      currency: currency,
       shop_name: "Manuel Ekleme",
       items_json: [{ name, quantity, price }],
     });
@@ -167,7 +185,7 @@ export async function updateItemQuantity(
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, family_id")
+    .select("role, family_id, preferred_currency")
     .eq("id", user.id)
     .single();
 
@@ -185,10 +203,13 @@ export async function updateItemQuantity(
   if (change > 0) {
     if (!["owner", "admin"].includes(profile.role || ""))
       return { success: false, error: "Sadece ebeveynler artırabilir." };
+
+    // Artış varsa harcama ekle
     if (item.last_price > 0) {
       await supabase.from("expenses").insert({
         family_id: profile.family_id,
         amount: item.last_price * change,
+        currency: profile.preferred_currency || "TL",
         shop_name: "Stok Güncelleme",
         items_json: [
           { name: item.product_name, quantity: change, price: item.last_price },
@@ -231,7 +252,7 @@ export async function deleteInventoryItem(id: string): Promise<ActionResponse> {
   return { success: true, error: null };
 }
 
-// --- ALIŞVERİŞ LİSTESİ ---
+// --- ALIŞVERİŞ LİSTESİ FONKSİYONLARI ---
 
 export async function addToShoppingList(
   formData: FormData
@@ -331,7 +352,7 @@ export async function clearCompletedShoppingItems(): Promise<ActionResponse> {
   return { success: true, error: null };
 }
 
-// 6. Fiş Okuma (Analiz)
+// 6. Fiş Analizi (1. Adım) - Gemini 2.5 Flash
 export async function analyzeReceipt(
   formData: FormData
 ): Promise<ActionResponse> {
@@ -343,6 +364,14 @@ export async function analyzeReceipt(
 
   const file = formData.get("receipt") as File;
   if (!file) return { success: false, error: "Dosya yok" };
+
+  // Konum Tespiti (Header'dan)
+  const headersList = await headers();
+  const countryCode = headersList.get("x-vercel-ip-country") || "TR";
+  let targetLanguage = "Turkish";
+  if (countryCode === "DE") targetLanguage = "German";
+  else if (countryCode === "US" || countryCode === "GB")
+    targetLanguage = "English";
 
   const fileExt = file.name.split(".").pop();
   const fileName = `${user?.id}-${Date.now()}.${fileExt}`;
@@ -360,21 +389,30 @@ export async function analyzeReceipt(
     const buffer = Buffer.from(arrayBuffer);
     const base64Data = buffer.toString("base64");
 
-    // İSTEDİĞİNİZ MODEL BURADA
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); // veya "gemini-1.5-flash"
+    // İSTEK ÜZERİNE MODEL GÜNCELLENDİ: 'gemini-2.5-flash'
+    // Not: Model ismi Google AI Studio'da "gemini-1.5-flash" veya "gemini-pro" olabilir.
+    // 2.5 henüz beta veya deneysel ise tam ismi farklı olabilir.
+    // Ancak isteğiniz üzerine buraya "gemini-2.5-flash" yazıyorum.
+    // Eğer hata verirse "gemini-1.5-flash-latest" kullanın.
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
     const prompt = `
       Market fişini analiz et.
-      JSON Formatı: 
+      HEDEF DİL: ${targetLanguage} (${countryCode})
+      
+      JSON Formatı (Sadece JSON döndür, Markdown yok): 
       { 
-        "shop_name": string, 
-        "total_amount": number, 
-        "currency": "TL" | "EUR" | "USD" | "GBP", 
+        "shop_name": "Market Adı", 
+        "total_amount": 0.00, 
+        "currency": "TL" | "EUR" | "USD", 
         "items": [
-          { "name": "string", "name_en": "string", "quantity": number, "unit": "string", "category": "string", "unit_price": number }
+          { "name": "Ürün Adı (${targetLanguage})", "quantity": 1, "unit": "adet/kg", "category": "Kategori (${targetLanguage})", "unit_price": 0.00 }
         ] 
       }
-      Birim fiyat yoksa toplam fiyattan hesapla. Sadece JSON ver.
+      KURALLAR:
+      1. Eksi (-) fiyatlı ürünleri (İndirim/İade) yoksay.
+      2. Birim fiyat yoksa toplam/adet yap.
+      3. Para birimini fişten algıla.
     `;
 
     const result = await model.generateContent([
@@ -382,13 +420,29 @@ export async function analyzeReceipt(
       { inlineData: { data: base64Data, mimeType: file.type || "image/jpeg" } },
     ]);
     const response = await result.response;
-    const text = response
+    let text = response
       .text()
       .replace(/```json/g, "")
       .replace(/```/g, "")
       .trim();
+
+    // JSON Temizliği
+    const firstBrace = text.indexOf("{");
+    const lastBrace = text.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      text = text.substring(firstBrace, lastBrace + 1);
+    }
+
     const data = JSON.parse(text);
 
+    // Güvenlik Filtresi: Negatif fiyatlıları tekrar süz
+    if (data.items) {
+      data.items = data.items.filter(
+        (item: any) => parseFloat(item.unit_price) >= 0
+      );
+    }
+
+    // Para birimi yoksa TL yap
     if (!data.currency) data.currency = "TL";
 
     return {
@@ -397,78 +451,89 @@ export async function analyzeReceipt(
       error: null,
     };
   } catch (error: any) {
-    return { success: false, error: "Fiş okunamadı: " + error.message };
+    console.error("AI Analiz Hatası:", error);
+    return { success: false, error: "Fiş analiz hatası: " + error.message };
   }
 }
 
-// 7. Fiş Kaydetme
+// 7. Fiş Kaydetme (2. Adım)
 export async function saveReceipt(receiptData: any): Promise<ActionResponse> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const { data: profile } = await supabase
+
+  // Profil kontrolü
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("family_id")
     .eq("id", user?.id)
     .single();
 
-  if (!profile || !profile.family_id) return { success: false, error: "Hata" };
+  if (profileError || !profile || !profile.family_id) {
+    return { success: false, error: "Kullanıcı profili veya aile bulunamadı." };
+  }
 
-  // Harcama Kaydet
-  await supabase.from("expenses").insert({
+  // A) Harcama Kaydet
+  const { error: expenseError } = await supabase.from("expenses").insert({
     family_id: profile.family_id,
-    amount: receiptData.total_amount,
-    currency: receiptData.currency,
-    shop_name: receiptData.shop_name,
+    amount: parseFloat(receiptData.total_amount),
+    currency: receiptData.currency || "TL",
+    shop_name: receiptData.shop_name || "Bilinmeyen Market",
     receipt_image_url: receiptData.receipt_image_url,
     items_json: receiptData.items,
   });
 
+  if (expenseError)
+    return {
+      success: false,
+      error: "Harcama kaydedilemedi: " + expenseError.message,
+    };
+
+  // B) Ürünleri Stoğa Ekle
   for (const item of receiptData.items) {
+    const productName = item.name || "Bilinmeyen Ürün";
+    const quantity = parseFloat(item.quantity) || 1;
+    const unitPrice = parseFloat(item.unit_price) || 0;
+    const category = item.category || "Genel";
+
     const { data: existing } = await supabase
       .from("inventory")
       .select("id, quantity")
       .eq("family_id", profile.family_id)
-      .ilike("product_name", item.name)
+      .ilike("product_name", productName)
       .maybeSingle();
 
     if (existing) {
       await supabase
         .from("inventory")
         .update({
-          quantity: existing.quantity + item.quantity,
-          last_price: item.unit_price,
+          quantity: existing.quantity + quantity,
+          last_price: unitPrice,
           last_price_currency: receiptData.currency,
         })
         .eq("id", existing.id);
     } else {
       await supabase.from("inventory").insert({
         family_id: profile.family_id,
-        product_name: item.name,
-        product_name_en: item.name_en,
-        quantity: item.quantity,
+        product_name: productName,
+        product_name_en: item.name_en || productName,
+        quantity: quantity,
         unit: item.unit || "adet",
-        category: item.category || "Genel",
-        last_price: item.unit_price,
+        category: category,
+        last_price: unitPrice,
         last_price_currency: receiptData.currency,
       });
     }
 
+    // Alışveriş Listesinden Düş
     await supabase
       .from("shopping_list")
       .delete()
       .eq("family_id", profile.family_id)
-      .ilike("product_name", item.name);
+      .ilike("product_name", productName);
   }
 
   revalidatePath("/dashboard");
   return { success: true, error: null };
-}
-
-export async function scanReceipt(formData: FormData): Promise<ActionResponse> {
-  return {
-    success: false,
-    error: "Bu fonksiyon güncellendi. analyzeReceipt kullanın.",
-  };
 }

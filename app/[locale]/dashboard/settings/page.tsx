@@ -1,7 +1,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { MembersWidget } from "@/components/dashboard/settings/MembersWidget";
+import { AppearanceWidget } from "@/components/dashboard/settings/AppearanceWidget"; // <-- YENİ
 import { getFamilyMembers, getInvitations } from "@/app/actions/family";
+import { PreferencesWidget } from "@/components/dashboard/settings/PreferencesWidget"; // <-- YENİ
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -10,7 +12,6 @@ export default async function SettingsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Profil ve Yetki Kontrolü
   const { data: profile } = await supabase
     .from("profiles")
     .select("*")
@@ -19,7 +20,7 @@ export default async function SettingsPage() {
 
   if (!profile?.family_id) redirect("/dashboard");
 
-  // Verileri Çek (Parallel Fetching)
+  // Verileri Çek
   const [membersRes, invitesRes] = await Promise.all([
     getFamilyMembers(),
     getInvitations(),
@@ -36,9 +37,9 @@ export default async function SettingsPage() {
         </p>
       </div>
 
-      <div className="grid gap-8">
-        {/* ÜYE YÖNETİMİ */}
-        <div className="space-y-4">
+      <div className="grid gap-8 md:grid-cols-2">
+        {/* SOL: ÜYE YÖNETİMİ */}
+        <div className="space-y-4 md:col-span-2">
           <h2 className="text-xl font-semibold border-b pb-2 text-gray-800 dark:text-gray-200">
             Aile Üyeleri
           </h2>
@@ -50,15 +51,20 @@ export default async function SettingsPage() {
           />
         </div>
 
-        {/* DİĞER AYARLAR (Gelecek Özellik) */}
-        <div className="space-y-4 opacity-50 pointer-events-none grayscale">
+        {/* SAĞ: TERCİHLER (YENİ) */}
+        <div className="space-y-4">
           <h2 className="text-xl font-semibold border-b pb-2 text-gray-800 dark:text-gray-200">
-            Hesap Ayarları (Yakında)
+            Uygulama Ayarları
           </h2>
-          <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded text-sm text-gray-500">
-            İsim değiştirme, avatar yükleme ve abonelik yönetimi bu alanda
-            olacak.
-          </div>
+          <PreferencesWidget />
+        </div>
+
+        {/* DİĞER: HESAP */}
+        <div className="space-y-4 lg:col-span-2">
+          <h2 className="text-xl font-semibold border-b pb-2 text-gray-800 dark:text-gray-200">
+            Görünüm
+          </h2>
+          <AppearanceWidget />
         </div>
       </div>
     </div>

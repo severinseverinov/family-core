@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { notFound } from "next/navigation";
+import { ThemeColorProvider } from "@/components/providers/theme-color-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -47,9 +48,11 @@ export default async function RootLayout({
       >
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-            <Navbar />
-            {children}
-            <Toaster />
+            <ThemeColorProvider>
+              <Navbar />
+              {children}
+              <Toaster />
+            </ThemeColorProvider>
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>

@@ -51,6 +51,7 @@ import {
   addInventoryItem,
   deleteInventoryItem,
   updateItemQuantity,
+  scanReceipt,
   updateBudget,
   addToShoppingList,
   toggleShoppingItem,
@@ -114,6 +115,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
   const [shoppingList, setShoppingList] = useState<any[]>([]);
   const [budget, setBudget] = useState(0);
   const [spent, setSpent] = useState(0);
+  const [userCurrency, setUserCurrency] = useState("TL"); // YENİ: Para Birimi State'i
 
   const [sortBy, setSortBy] = useState<"date" | "urgency" | "market">(
     "urgency"
@@ -125,6 +127,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
   const [isBudgetOpen, setIsBudgetOpen] = useState(false);
   const [isShoppingModeOpen, setIsShoppingModeOpen] = useState(false);
   const [isQrOpen, setIsQrOpen] = useState(false);
+
   const [isReceiptReviewOpen, setIsReceiptReviewOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
 
@@ -140,6 +143,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
       setShoppingList(res.shoppingList || []);
       setBudget(res.budget);
       setSpent(res.spent);
+      if (res.currency) setUserCurrency(res.currency); // YENİ: Para birimini güncelle
     }
     setLoading(false);
   };
@@ -154,11 +158,17 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     setIsScanning(true);
     const fd = new FormData();
     fd.append("receipt", file);
+
     try {
       const res = await analyzeReceipt(fd);
+
       if (res?.error) {
         toast.error(res.error);
       } else {
+        // Fişten gelen para birimi yoksa veya boşsa kullanıcının tercihini varsay
+        if (!res.data.currency || res.data.currency === "TL") {
+          res.data.currency = userCurrency;
+        }
         setReceiptData(res.data);
         setIsReceiptReviewOpen(true);
       }
@@ -192,7 +202,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
     setReceiptData(newData);
   };
 
-  // ... (Diğer handlerlar - Kısa) ...
   const sortedShoppingList = useMemo(() => {
     const list = [...shoppingList];
     list.sort((a, b) => Number(a.is_checked) - Number(b.is_checked));
@@ -342,7 +351,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
 
   return (
     <Card className="h-full flex flex-col border-orange-100 bg-orange-50/30 dark:bg-orange-900/10 dark:border-orange-900/30 shadow-sm relative">
-      {/* ... (Header ve Tabs kısmı aynı) ... */}
       <CardHeader className="pb-2 flex flex-col gap-3 space-y-0">
         <div className="flex items-center justify-between w-full">
           <div className="flex gap-2 bg-white/50 p-1 rounded-lg dark:bg-gray-800/50">
@@ -370,6 +378,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
               {shoppingList.filter(i => !i.is_checked).length})
             </button>
           </div>
+
           {mainTab === "inventory" && (
             <div className="flex gap-1">
               {isAdmin && (
@@ -458,16 +467,20 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
             </div>
           )}
         </div>
+
         {mainTab === "inventory" && budget > 0 && (
           <div className="w-full space-y-1">
             <div className="flex justify-between text-[10px] font-medium text-gray-500 dark:text-gray-400">
+              {/* YENİ: {userCurrency} kullanılıyor */}
               <span>
                 {t("spent")}:{" "}
-                {spent.toLocaleString(locale === "tr" ? "tr-TR" : "de-DE")}₺
+                {spent.toLocaleString(locale === "tr" ? "tr-TR" : "de-DE")}{" "}
+                {userCurrency}
               </span>
               <span>
                 {t("limit")}:{" "}
-                {budget.toLocaleString(locale === "tr" ? "tr-TR" : "de-DE")}₺
+                {budget.toLocaleString(locale === "tr" ? "tr-TR" : "de-DE")}{" "}
+                {userCurrency}
               </span>
             </div>
             <div className="h-2 w-full bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
@@ -546,7 +559,8 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                                     {item.last_price > 0 && (
                                       <span className="text-green-600 dark:text-green-400">
                                         {item.last_price}{" "}
-                                        {item.last_price_currency || "TL"}
+                                        {item.last_price_currency ||
+                                          userCurrency}
                                       </span>
                                     )}
                                   </div>
@@ -624,7 +638,6 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
         {/* ALIŞVERİŞ LİSTESİ GÖRÜNÜMÜ */}
         {mainTab === "shopping_list" && (
           <div className="flex flex-col h-full">
-            {/* ... (Alışveriş listesi aynı) ... */}
             <form
               action={async fd => {
                 await handleAddShoppingItem(fd);
@@ -668,6 +681,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                 <Plus className="h-4 w-4" />
               </Button>
             </form>
+            {/* Liste kodları aynı... */}
             <div className="flex-1 overflow-auto space-y-2 pr-1">
               {shoppingList.length === 0 && (
                 <div className="text-center text-xs text-gray-400 py-6">
@@ -773,7 +787,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
           </div>
         )}
 
-        {/* --- YENİ: FİŞ ÖNİZLEME VE DÜZENLEME MODALI --- */}
+        {/* --- FİŞ ONAY/DÜZENLEME MODALI --- */}
         <Dialog
           open={isReceiptReviewOpen}
           onOpenChange={setIsReceiptReviewOpen}
@@ -808,10 +822,10 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                       }
                       className="font-bold w-20 h-8 text-right dark:text-white"
                     />
-                    {/* PARA BİRİMİ SEÇİMİ */}
+                    {/* YENİ: PARA BİRİMİ SEÇİMİ */}
                     <select
                       className="bg-transparent border rounded text-sm p-1 dark:bg-gray-700 dark:text-white"
-                      value={receiptData.currency || "TL"}
+                      value={receiptData.currency || userCurrency}
                       onChange={e =>
                         setReceiptData({
                           ...receiptData,
@@ -827,6 +841,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                   </div>
                 </div>
 
+                {/* ... (Liste aynı) ... */}
                 <div className="space-y-2">
                   <p className="text-xs font-bold text-gray-500 uppercase px-1">
                     Tespit Edilen Ürünler
@@ -912,7 +927,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
           </DialogContent>
         </Dialog>
 
-        {/* ... (Diğer Modallar aynı) ... */}
+        {/* ... Diğer Modallar (Manuel Ekle, Bütçe, Alışveriş Modu, QR) aynı kalacak, sadece {t('price')} ve {userCurrency} ekleyin ... */}
         <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
           <DialogContent>
             <DialogHeader>
@@ -944,7 +959,9 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium">{t("price")}</label>
+                <label className="text-xs font-medium">
+                  {t("price")} ({userCurrency})
+                </label>
                 <Input name="price" type="number" step="0.01" />
               </div>
               <div className="space-y-1">
@@ -961,6 +978,7 @@ export function KitchenWidget({ userRole }: { userRole: string }) {
             </form>
           </DialogContent>
         </Dialog>
+        {/* Diğer modalları aynı bırakın */}
         <Dialog open={isBudgetOpen} onOpenChange={setIsBudgetOpen}>
           <DialogContent>
             <DialogHeader>

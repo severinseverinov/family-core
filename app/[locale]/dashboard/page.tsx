@@ -84,7 +84,8 @@ export default async function Dashboard() {
     getFamilyMembers(),
   ]);
 
-  const userName = profile.full_name || user.email?.split("@")[0] || "User";
+  const userName =
+    profile.full_name || user.email?.split("@")[0] || "Kullanıcı";
   const userRole = profile.role || "member";
 
   return (
@@ -101,9 +102,9 @@ export default async function Dashboard() {
         </div>
       </div>
 
-      {/* Grid */}
+      {/* Grid Yerleşimi */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Sol */}
+        {/* Sol Sütun */}
         <div className="lg:col-span-8 space-y-6">
           <div className="h-[520px]">
             <CalendarWidget
@@ -114,12 +115,12 @@ export default async function Dashboard() {
               userId={user.id}
             />
           </div>
-          <div className="h-[605px]">
+          <div className="h-[400px]">
             <KitchenWidget userRole={userRole} />
           </div>
         </div>
 
-        {/* Sağ */}
+        {/* Sağ Sütun */}
         <div className="lg:col-span-4 space-y-6">
           <div className="h-[480px]">
             <GamificationWidget
