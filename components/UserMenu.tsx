@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -10,7 +9,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
@@ -33,47 +32,36 @@ export function UserMenu({ user }: UserMenuProps) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex items-center space-x-2 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-        <Avatar>
-          {user.user_metadata?.avatar_url ? (
-            <AvatarImage
-              src={user.user_metadata.avatar_url}
-              alt={user.email || "User"}
-            />
-          ) : null}
-          <AvatarFallback>{userInitials}</AvatarFallback>
-        </Avatar>
+      <DropdownMenuTrigger asChild>
+        <button className="relative h-9 w-9 rounded-full border border-border/50 p-0 hover:bg-accent/50 focus:ring-2 focus:ring-primary/20 transition-all">
+          <Avatar className="h-8 w-8">
+            {user.user_metadata?.avatar_url ? (
+              <AvatarImage
+                src={user.user_metadata.avatar_url}
+                alt={user.email || "User"}
+                className="object-cover"
+              />
+            ) : null}
+            <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
+              {userInitials}
+            </AvatarFallback>
+          </Avatar>
+        </button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent className="w-56 mr-4 mt-2">
+      <DropdownMenuContent className="w-56 mr-4 mt-2" forceMount>
         <div className="px-2 py-1.5">
-          <p className="text-sm font-medium text-gray-900 dark:text-gray-50">
-            {user.user_metadata?.full_name ||
-              user.email?.split("@")[0] ||
-              "Kullanıcı"}
+          <p className="text-sm font-medium text-foreground">
+            {user.user_metadata?.full_name || "Kullanıcı"}
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-            {user.email}
-          </p>
+          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
         </div>
-
-        <DropdownMenuSeparator />
-
-        <DropdownMenuItem asChild>
-          <Link
-            href="/dashboard/settings"
-            className="cursor-pointer w-full flex items-center"
-          >
-            <Settings className="mr-2 h-4 w-4" />
-            Ayarlar & Aile
-          </Link>
-        </DropdownMenuItem>
 
         <DropdownMenuSeparator />
 
         <DropdownMenuItem
           onClick={handleSignOut}
-          className="cursor-pointer text-red-600 focus:text-red-600 dark:text-red-400 focus:bg-red-50 dark:focus:bg-red-900/10"
+          className="cursor-pointer text-red-600 focus:text-red-600 dark:text-red-400 focus:bg-red-50 dark:focus:bg-red-950/30"
         >
           <LogOut className="mr-2 h-4 w-4" />
           Çıkış Yap

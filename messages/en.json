@@ -21,7 +21,7 @@
     "subtitle": "Your family status at a glance. (Location: {country})"
   },
   "Calendar": {
-    "title": "Calendar & Tasks",
+    "title": "Calendar & Weather",
     "today": "Today",
     "noEvents": "Nothing to do 😴",
     "addEvent": "New Event",

@@ -21,7 +21,17 @@
     "subtitle": "Ailenizin durumu bir bakışta burada. (Konum: {country})"
   },
   "Calendar": {
-    "title": "Takvim & Görevler",
+    "title": "Takvim & Hava Durumu",
+    "reminders": "Hatırlatmalar",
+    "addReminder": "Hatırlatma Ekle",
+    "reminderTitle": "Hatırlatma Başlığı",
+    "specialReminders": "Özel Hatırlatmalar",
+    "cycleTracker": "Regl / Döngü Takibi",
+    "personalCare": "Kişisel Bakım / Tıraş",
+    "lastCycleDate": "Son Adet Başlangıç Tarihi",
+    "cycleDuration": "Döngü Süresi (Gün)",
+    "calcNextCycle": "Bir Sonraki Döngüyü Ekle",
+
     "today": "Bugün",
     "noEvents": "Yapılacak bir şey yok 😴",
     "addEvent": "Yeni Etkinlik",

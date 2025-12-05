@@ -1,8 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Palette, Moon, Sun, Monitor, Check } from "lucide-react"; // Check eklendi
+import {
+  Palette,
+  Moon,
+  Sun,
+  Monitor,
+  Globe,
+  Coins,
+  Check,
+  User,
+} from "lucide-react";
 import { useTheme } from "next-themes";
 import { useThemeColor } from "@/components/providers/theme-color-provider";
 import { toast } from "sonner";
@@ -18,22 +28,43 @@ const COLORS = [
   { name: "zinc", label: "Gri", color: "bg-zinc-500" },
 ];
 
-// Props opsiyonel yapıldı
-export function AppearanceWidget() {
+// Props güncellendi
+interface AppearanceProps {
+  initialCurrency?: string;
+  initialLanguage?: string;
+  initialGender?: string; // <-- YENİ
+}
+
+export function AppearanceWidget({
+  initialCurrency,
+  initialLanguage,
+  initialGender,
+}: AppearanceProps) {
   const { setTheme, theme } = useTheme();
   const { themeColor, setThemeColor } = useThemeColor();
   const router = useRouter();
 
+  const [currency, setCurrency] = useState(initialCurrency || "TL");
+  const [language, setLanguage] = useState(initialLanguage || "tr");
+  const [gender, setGender] = useState(initialGender || "male"); // <-- YENİ
+
   const handleSave = async () => {
     const formData = new FormData();
     formData.append("themeColor", themeColor);
+    formData.append("language", language);
+    formData.append("currency", currency);
+    formData.append("gender", gender); // <-- YENİ
 
     const res = await updatePreferences(formData);
     if (res?.error) {
       toast.error("Hata oluştu");
     } else {
-      toast.success("Görünüm ayarları kaydedildi!");
-      router.refresh();
+      toast.success("Ayarlar kaydedildi!");
+      if (language !== initialLanguage) {
+        window.location.href = `/${language}/dashboard/settings`;
+      } else {
+        router.refresh();
+      }
     }
   };
 
@@ -41,11 +72,11 @@ export function AppearanceWidget() {
     <Card>
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
-          <Palette className="h-5 w-5" /> Görünüm & Tema
+          <Palette className="h-5 w-5" /> Görünüm & Tercihler
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-8">
-        {/* 1. AYDINLIK / KARANLIK MOD */}
+        {/* AYDINLIK / KARANLIK MOD (Aynı) */}
         <div className="space-y-3">
           <label className="text-sm font-medium">Mod</label>
           <div className="grid grid-cols-3 gap-2">
@@ -79,7 +110,7 @@ export function AppearanceWidget() {
           </div>
         </div>
 
-        {/* 2. RENK TEMASI */}
+        {/* RENK TEMASI (Aynı) */}
         <div className="space-y-3">
           <label className="text-sm font-medium">Renk Teması</label>
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
@@ -87,14 +118,11 @@ export function AppearanceWidget() {
               <button
                 key={c.name}
                 onClick={() => setThemeColor(c.name as any)}
-                className={`
-                            flex flex-col items-center justify-center gap-2 p-2 rounded-lg border-2 transition-all
-                            ${
-                              themeColor === c.name
-                                ? "border-primary bg-accent"
-                                : "border-transparent hover:bg-accent/50"
-                            }
-                        `}
+                className={`flex flex-col items-center justify-center gap-2 p-2 rounded-lg border-2 transition-all ${
+                  themeColor === c.name
+                    ? "border-primary bg-accent"
+                    : "border-transparent hover:bg-accent/50"
+                }`}
               >
                 <div
                   className={`h-6 w-6 rounded-full ${c.color} flex items-center justify-center text-white`}
@@ -106,6 +134,53 @@ export function AppearanceWidget() {
                 </span>
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* DİĞER AYARLAR */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <Globe className="h-4 w-4" /> Dil
+            </label>
+            <select
+              className="w-full border p-2 rounded-md bg-background"
+              value={language}
+              onChange={e => setLanguage(e.target.value)}
+            >
+              <option value="tr">Türkçe</option>
+              <option value="en">English</option>
+              <option value="de">Deutsch</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <Coins className="h-4 w-4" /> Para Birimi
+            </label>
+            <select
+              className="w-full border p-2 rounded-md bg-background"
+              value={currency}
+              onChange={e => setCurrency(e.target.value)}
+            >
+              <option value="TL">TL (₺)</option>
+              <option value="EUR">Euro (€)</option>
+              <option value="USD">Dolar ($)</option>
+              <option value="GBP">Sterlin (£)</option>
+            </select>
+          </div>
+          {/* YENİ: CİNSİYET SEÇİMİ */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <User className="h-4 w-4" /> Cinsiyet
+            </label>
+            <select
+              className="w-full border p-2 rounded-md bg-background"
+              value={gender}
+              onChange={e => setGender(e.target.value)}
+            >
+              <option value="male">Erkek (♂)</option>
+              <option value="female">Kadın (♀)</option>
+            </select>
           </div>
         </div>
 

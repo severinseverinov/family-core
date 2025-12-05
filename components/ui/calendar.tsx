@@ -36,91 +36,90 @@ function Calendar({
         ...formatters,
       }}
       classNames={{
-        root: cn("w-full", defaultClassNames.root),
+        // ANA KAPSAYICI: Genişliği içeriğe göre ayarla
+        root: cn("w-fit h-full", defaultClassNames.root),
+
         months: cn(
-          "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 w-full",
+          "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
           defaultClassNames.months
         ),
-        month: cn("space-y-4 w-full", defaultClassNames.month),
+        month: cn("space-y-4", defaultClassNames.month),
 
         // BAŞLIK (AY/YIL)
-        month_caption: cn(
-          "flex justify-center pt-1 relative items-center mb-4",
-          defaultClassNames.month_caption
+        // relative: Navigasyon butonları buna göre konumlanacak
+        caption: cn(
+          "flex justify-center pt-1 relative items-center mb-4 h-10",
+          defaultClassNames.caption
         ),
         caption_label: cn(
           "text-sm font-medium",
           defaultClassNames.caption_label
         ),
 
-        // NAVİGASYON
+        // NAVİGASYON (OKLAR)
+        // absolute değil, flex içinde normal akışta bırakıyoruz ama butonlara absolute veriyoruz
         nav: cn("space-x-1 flex items-center", defaultClassNames.nav),
+
+        // SOL OK (Mutlak Konum: En Sol)
         button_previous: cn(
           buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 z-10 absolute left-1",
-          defaultClassNames.button_previous
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute left-1 top-1 z-10"
         ),
+
+        // SAĞ OK (Mutlak Konum: En Sağ)
         button_next: cn(
-          buttonVariants({ variant: buttonVariant }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 z-10 absolute right-1",
-          defaultClassNames.button_next
+          buttonVariants({ variant: "outline" }),
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute right-1 top-1 z-10"
         ),
 
-        // --- TABLO YAPISI (DÜZELTİLDİ) ---
-        // month_grid: Tablonun kendisi (v9'da table yerine month_grid kullanılır)
-        month_grid: "border-collapse space-y-1 table-fixed",
+        // --- TABLO YAPISI (KESİN ÇÖZÜM) ---
+        // w-full: Genişliği doldur
+        // border-collapse: Hücre aralarını kapat
+        // table-fixed: Sütunları EŞİT genişliğe zorla (Kaymayı önler)
+        table: "w-full border-collapse space-y-1 table-fixed",
 
-        // weekdays: Başlık satırı (tr)
-        weekdays: "mb-2",
+        // BAŞLIK SATIRI (TR)
+        head_row: "flex w-full mb-2",
 
-        // weekday: Başlık hücresi (th) - Pzt, Sal...
-        weekday:
-          "text-muted-foreground rounded-md w-12 font-normal text-[0.8rem] h-8 align-middle",
+        // BAŞLIK HÜCRESİ (TH)
+        // w-10: Sabit genişlik (40px)
+        head_cell:
+          "text-muted-foreground rounded-md w-10 font-normal text-[0.8rem] text-center",
 
-        // week: Gün satırı (tr)
-        week: "mt-2",
+        // GÜN SATIRI (TR)
+        row: "flex w-full mt-2",
 
-        // day: Gün hücresi (td) - İçine buton gelecek
-        // h-14 w-12: Yüksekliği artırdık ki hava durumu sığsın
-        day: "h-14 w-12 p-0 text-center text-sm relative [&:has([aria-selected].range-end)]:rounded-r-md [&:has([aria-selected].outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+        // GÜN HÜCRESİ (TD)
+        // h-10 w-10: Sabit kare (40px)
+        cell: "h-10 w-10 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
 
-        // day_button: Gün butonu (td içindeki button)
-        day_button: cn(
+        // GÜN BUTONU
+        // size-full: Hücreyi doldur
+        // !rounded-md: Kare yap
+        day: cn(
           buttonVariants({ variant: "ghost" }),
-          "size-full p-0 font-normal aria-selected:opacity-100 !rounded-md" // !rounded-md ile KARE zorlaması
+          "h-10 w-10 p-0 font-normal aria-selected:opacity-100 !rounded-md"
         ),
 
-        // SEÇİLİ GÜN
-        selected:
+        // Seçili Gün
+        day_selected:
           "bg-blue-600 text-white hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white !rounded-md",
 
-        // BUGÜN
-        today:
-          "bg-accent text-accent-foreground !rounded-md border-rounded-md border-blue-200 dark:border-blue-800",
+        // Bugün
+        day_today:
+          "bg-accent text-accent-foreground !rounded-md border border-blue-200 dark:border-blue-800",
 
-        outside:
+        day_outside:
           "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
-
-        disabled: "text-muted-foreground opacity-50",
-
-        range_middle:
+        day_disabled: "text-muted-foreground opacity-50",
+        day_range_middle:
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
-
-        hidden: "invisible",
+        day_hidden: "invisible",
         ...classNames,
       }}
       components={{
-        Chevron: ({ className, orientation, ...props }) => {
-          if (orientation === "left") {
-            return (
-              <ChevronLeft className={cn("h-4 w-4", className)} {...props} />
-            );
-          }
-          return (
-            <ChevronRight className={cn("h-4 w-4", className)} {...props} />
-          );
-        },
-        // Özel İçerik Render'ı
+        IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
+        IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
         DayButton: dayButtonProps => {
           const content = renderDay
             ? renderDay(dayButtonProps.day.date)
@@ -137,7 +136,6 @@ function Calendar({
   );
 }
 
-// Özel Buton
 function CalendarDayButton({
   className,
   day,
@@ -156,17 +154,12 @@ function CalendarDayButton({
       ref={ref}
       variant="ghost"
       className={cn(
-        // size-full: TD'yi doldur
-        // flex-col: Tarih ve İkonu alt alta diz
-        "size-full p-0 font-normal aria-selected:opacity-100 !rounded-md flex flex-col items-center justify-center gap-0.5",
-
+        "h-10 w-10 p-0 font-normal aria-selected:opacity-100 !rounded-md flex flex-col items-center justify-center gap-0",
         modifiers.selected &&
           "bg-blue-600 text-white hover:bg-blue-700 hover:text-white !rounded-md",
-
         modifiers.today &&
           !modifiers.selected &&
           "bg-accent text-accent-foreground !rounded-md",
-
         className
       )}
       {...props}

@@ -7,6 +7,7 @@ import { getTranslations } from "next-intl/server";
 
 // Widgetlar
 import { CalendarWidget } from "@/components/dashboard/widgets/CalendarWidget";
+import { TasksWidget } from "@/components/dashboard/widgets/TasksWidget"; // YENİ EKLENDİ
 import { PetWidget } from "@/components/dashboard/widgets/PetWidget";
 import { KitchenWidget } from "@/components/dashboard/widgets/KitchenWidget";
 import { GamificationWidget } from "@/components/dashboard/widgets/GamificationWidget";
@@ -22,7 +23,6 @@ import {
   getPointHistory,
   getPointRules,
 } from "@/app/actions/gamification";
-
 import { getFamilyMembers, getFamilyDetails } from "@/app/actions/family";
 
 export default async function Dashboard() {
@@ -68,7 +68,7 @@ export default async function Dashboard() {
   const headersList = await headers();
   const countryCode = headersList.get("x-vercel-ip-country") || "TR";
 
-  // 4. Verileri Çek
+  // 4. Verileri Çek (Paralel)
   const [
     holidays,
     dashboardData,
@@ -92,40 +92,57 @@ export default async function Dashboard() {
   const userName =
     profile.full_name || user.email?.split("@")[0] || "Kullanıcı";
   const userRole = profile.role || "member";
+  const userGender = profile.gender || "male"; // <-- YENİ: Cinsiyet verisi
 
   return (
-    <div className="p-4 md:p-8 space-y-6 max-w-[1600px] mx-auto">
+    <div className="p-4 md:p-8 space-y-6 max-w-[1600px] mx-auto relative min-h-screen">
       <DynamicBackground />
-      {/* 1. TEK PARÇA BAŞLIK (AİLE KARTI) */}
-      <div className="relative z-10 w-full">
-        <FamilyWidget
-          familyData={familyRes.family}
-          userRole={userRole}
-          userName={userName} // <-- Yeni Prop
-          locationName={countryCode} // <-- Yeni Prop
-        />
+
+      {/* BAŞLIK & AİLE KARTI */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 relative z-10">
+        <div className="w-full">
+          <FamilyWidget
+            familyData={familyRes.family}
+            userRole={userRole}
+            userName={userName}
+            locationName={countryCode}
+          />
+        </div>
       </div>
 
-      {/* Grid Yerleşimi */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Sol Sütun */}
+      {/* GRID YERLEŞİMİ */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
+        {/* SOL SÜTUN (Geniş - Takvim, Görevler, Mutfak) */}
         <div className="lg:col-span-8 space-y-6">
-          <div className="h-[520px]">
+          {/* 1. Takvim (Hava Durumu ve Tarih) */}
+          <div className="h-fit">
             <CalendarWidget
-              initialItems={dashboardData.items || []}
               initialHolidays={holidays}
-              familyMembers={membersData.members || []}
-              userRole={userRole}
-              userId={user.id}
+              userGender={userGender}
+              // Takvim artık sadece bilgi gösteriyor, liste TasksWidget'ta
             />
           </div>
+
+          {/* 2. Görevler ve Etkinlikler (YENİ WIDGET) */}
+          <div className="h-[450px]">
+            <TasksWidget
+              initialItems={dashboardData.items || []}
+              userRole={userRole}
+              userId={user.id}
+              familyMembers={membersData.members || []}
+              userGender={userGender}
+            />
+          </div>
+
+          {/* 3. Mutfak & Stok */}
           <div className="h-[400px]">
             <KitchenWidget userRole={userRole} />
           </div>
         </div>
 
-        {/* Sağ Sütun */}
+        {/* SAĞ SÜTUN (Dar - Puan, Pet, Kasa) */}
         <div className="lg:col-span-4 space-y-6">
+          {/* 4. Oyunlaştırma */}
           <div className="h-[480px]">
             <GamificationWidget
               initialUsers={leaderboardData.users || []}
@@ -134,9 +151,13 @@ export default async function Dashboard() {
               initialRules={rulesData.rules || []}
             />
           </div>
+
+          {/* 5. Evcil Hayvanlar (Form ve Liste) */}
           <div className="h-[320px]">
             <PetWidget familyMembers={membersData.members || []} />
           </div>
+
+          {/* 6. Aile Kasası */}
           <div className="h-[300px]">
             <VaultWidget />
           </div>

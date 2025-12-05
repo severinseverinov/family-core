@@ -2,7 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers"; // Çerez yönetimi için
+import { cookies } from "next/headers";
 
 export async function updatePreferences(formData: FormData) {
   const supabase = await createClient();
@@ -15,21 +15,22 @@ export async function updatePreferences(formData: FormData) {
   const language = formData.get("language") as string;
   const currency = formData.get("currency") as string;
   const themeColor = formData.get("themeColor") as string;
+  const gender = formData.get("gender") as string; // <-- YENİ
 
-  // 1. Veritabanını Güncelle
+  // Veritabanını Güncelle
   const { error } = await supabase
     .from("profiles")
     .update({
       preferred_language: language,
       preferred_currency: currency,
       theme_color: themeColor,
+      gender: gender, // <-- YENİ
     })
     .eq("id", user.id);
 
   if (error) return { error: error.message };
 
-  // 2. Dil Çerezini Güncelle (next-intl için)
-  // Bu sayede middleware bir sonraki istekte dili buna göre ayarlayacak
+  // Dil Çerezini Güncelle
   (await cookies()).set("NEXT_LOCALE", language);
 
   revalidatePath("/dashboard");
@@ -42,16 +43,24 @@ export async function getPreferences() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return { language: "tr", currency: "TL" };
+  if (!user)
+    return {
+      language: "tr",
+      currency: "TL",
+      themeColor: "blue",
+      gender: "male",
+    };
 
   const { data } = await supabase
     .from("profiles")
-    .select("preferred_language, preferred_currency")
+    .select("preferred_language, preferred_currency, theme_color, gender")
     .eq("id", user.id)
     .single();
 
   return {
     language: data?.preferred_language || "tr",
     currency: data?.preferred_currency || "TL",
+    themeColor: data?.theme_color || "blue",
+    gender: data?.gender || "male", // <-- YENİ
   };
 }

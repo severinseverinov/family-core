@@ -13,8 +13,30 @@ const DropdownMenuContext = React.createContext<
   DropdownMenuContextValue | undefined
 >(undefined);
 
-const DropdownMenu = ({ children }: { children: React.ReactNode }) => {
-  const [open, setOpen] = React.useState(false);
+interface DropdownMenuProps {
+  children: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+const DropdownMenu = ({
+  children,
+  open: controlledOpen,
+  onOpenChange,
+}: DropdownMenuProps) => {
+  const [internalOpen, setInternalOpen] = React.useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = React.useCallback(
+    (newOpen: boolean) => {
+      if (isControlled) {
+        onOpenChange?.(newOpen);
+      } else {
+        setInternalOpen(newOpen);
+      }
+    },
+    [isControlled, onOpenChange]
+  );
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -29,7 +51,7 @@ const DropdownMenu = ({ children }: { children: React.ReactNode }) => {
       return () =>
         document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [open]);
+  }, [open, setOpen]);
 
   return (
     <DropdownMenuContext.Provider value={{ open, setOpen }}>
@@ -63,21 +85,33 @@ const DropdownMenuTrigger = React.forwardRef<
 });
 DropdownMenuTrigger.displayName = "DropdownMenuTrigger";
 
+interface DropdownMenuContentProps
+  extends React.HTMLAttributes<HTMLDivElement> {
+  align?: "start" | "end" | "center";
+}
+
 const DropdownMenuContent = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => {
+  DropdownMenuContentProps
+>(({ className, align = "end", ...props }, ref) => {
   const context = React.useContext(DropdownMenuContext);
   if (!context)
     throw new Error("DropdownMenuContent must be used within DropdownMenu");
 
   if (!context.open) return null;
 
+  const alignClasses = {
+    start: "left-0",
+    end: "right-0",
+    center: "left-1/2 -translate-x-1/2",
+  };
+
   return (
     <div
       ref={ref}
       className={cn(
-        "absolute right-0 top-full z-50 mt-2 min-w-[8rem] overflow-hidden rounded-md border border-gray-200 bg-white p-1 text-gray-950 shadow-md dark:border-gray-800 dark:bg-gray-950 dark:text-gray-50",
+        "absolute top-full z-50 mt-2 min-w-32 overflow-hidden rounded-md border border-gray-200 bg-white p-1 text-gray-950 shadow-md dark:border-gray-800 dark:bg-gray-950 dark:text-gray-50",
+        alignClasses[align],
         className
       )}
       {...props}

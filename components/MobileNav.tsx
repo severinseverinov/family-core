@@ -1,89 +1,94 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
-import { User, LogIn, Menu, X } from "lucide-react";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
+import Link from "next/link";
+import { Menu, LogIn, LayoutDashboard, Settings, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { createClient } from "@/utils/supabase/client";
+import { useRouter } from "next/navigation";
 
-interface MobileNavProps {
-  user: SupabaseUser | null;
-}
+export function MobileNav({ user }: { user: any }) {
+  const [open, setOpen] = useState(false);
+  const router = useRouter();
+  const supabase = createClient();
 
-export function MobileNav({ user }: MobileNavProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
 
   return (
-    <div className="md:hidden">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center justify-center rounded-md p-2 text-gray-700 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
-        aria-label="Toggle menu"
-      >
-        {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-      </button>
-
-      {isOpen && (
-        <div className="absolute left-0 right-0 top-16 z-50 border-b border-gray-200 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-900">
-          <div className="space-y-1 px-2 pb-3 pt-2">
-            {user ? (
-              <>
-                <Link
-                  href="/dashboard"
-                  className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Dashboard
-                </Link>
-                <Link
-                  href="/calendar"
-                  className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Calendar
-                </Link>
-                <Link
-                  href="/pets"
-                  className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Pets
-                </Link>
-                <Link
-                  href="/kitchen"
-                  className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Kitchen
-                </Link>
-                <Link
-                  href="/dashboard/settings"
-                  className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Ayarlar & Aile
-                </Link>
-                <div className="flex items-center space-x-2 rounded-md px-3 py-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700">
-                    <User className="h-4 w-4 text-gray-600 dark:text-gray-300" />
-                  </div>
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {user.email?.split("@")[0] || "User"}
-                  </span>
-                </div>
-              </>
-            ) : (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="md:hidden">
+          <Menu className="h-5 w-5" />
+          <span className="sr-only">Menüyü Aç</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56 mt-2 p-2">
+        {!user ? (
+          // GİRİŞ YAPMAMIŞSA
+          <>
+            <DropdownMenuItem asChild>
+              <Link href="#features" className="w-full cursor-pointer py-2">
+                Özellikler
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="#pricing" className="w-full cursor-pointer py-2">
+                Fiyatlar
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
               <Link
                 href="/login"
-                className="flex items-center space-x-2 rounded-md bg-blue-600 px-3 py-2 text-base font-medium text-white transition-colors hover:bg-blue-700"
-                onClick={() => setIsOpen(false)}
+                className="w-full cursor-pointer py-2 font-semibold text-primary"
               >
-                <LogIn className="h-4 w-4" />
-                <span>Login</span>
+                <LogIn className="mr-2 h-4 w-4" /> Giriş Yap
               </Link>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+            </DropdownMenuItem>
+          </>
+        ) : (
+          // GİRİŞ YAPMIŞSA
+          <>
+            <div className="px-2 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wider">
+              Menü
+            </div>
+            <DropdownMenuItem asChild>
+              <Link
+                href="/dashboard"
+                className="w-full cursor-pointer py-2 flex items-center gap-2"
+              >
+                <LayoutDashboard className="h-4 w-4" /> Panel
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link
+                href="/dashboard/settings"
+                className="w-full cursor-pointer py-2 flex items-center gap-2"
+              >
+                <Settings className="h-4 w-4" /> Ayarlar
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleSignOut}
+              className="w-full cursor-pointer py-2 text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50 flex items-center gap-2"
+            >
+              <LogOut className="h-4 w-4" /> Çıkış Yap
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
