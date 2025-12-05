@@ -5,6 +5,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+  /* Varsayılan (ZINC) Renkler */
   --background: 0 0% 100%;
   --foreground: 240 10% 3.9%;
   --card: 0 0% 100%;
@@ -82,7 +83,9 @@
   --radius-sm: calc(var(--radius) - 4px);
 }
 
-/* --- RENK TEMALARI (Aynen Kalıyor) --- */
+/* --- DİNAMİK RENK TEMALARI --- */
+
+/* Mavi (Blue) */
 [data-theme="blue"] {
   --primary: 221.2 83.2% 53.3%;
   --primary-foreground: 210 40% 98%;
@@ -94,7 +97,65 @@
   --ring: 217.2 91.2% 59.8%;
 }
 
-/* ... (Diğer renkler green, orange vb. buraya eklenebilir, önceki kodunuzdaki gibi) ... */
+/* Yeşil (Green) */
+[data-theme="green"] {
+  --primary: 142.1 76.2% 36.3%;
+  --primary-foreground: 355.7 100% 97.3%;
+  --ring: 142.1 76.2% 36.3%;
+}
+.dark [data-theme="green"] {
+  --primary: 142.1 70.6% 45.3%;
+  --primary-foreground: 144.9 80.4% 10%;
+  --ring: 142.1 70.6% 45.3%;
+}
+
+/* Turuncu (Orange) */
+[data-theme="orange"] {
+  --primary: 24.6 95% 53.1%;
+  --primary-foreground: 60 9.1% 97.8%;
+  --ring: 24.6 95% 53.1%;
+}
+.dark [data-theme="orange"] {
+  --primary: 20.5 90.2% 48.2%;
+  --primary-foreground: 60 9.1% 97.8%;
+  --ring: 20.5 90.2% 48.2%;
+}
+
+/* Gül (Rose) */
+[data-theme="rose"] {
+  --primary: 346.8 77.2% 49.8%;
+  --primary-foreground: 355.7 100% 97.3%;
+  --ring: 346.8 77.2% 49.8%;
+}
+.dark [data-theme="rose"] {
+  --primary: 346.8 77.2% 49.8%;
+  --primary-foreground: 355.7 100% 97.3%;
+  --ring: 346.8 77.2% 49.8%;
+}
+
+/* Sarı (Yellow) */
+[data-theme="yellow"] {
+  --primary: 47.9 95.8% 53.1%;
+  --primary-foreground: 26 83.3% 14.1%;
+  --ring: 47.9 95.8% 53.1%;
+}
+.dark [data-theme="yellow"] {
+  --primary: 47.9 95.8% 53.1%;
+  --primary-foreground: 26 83.3% 14.1%;
+  --ring: 47.9 95.8% 53.1%;
+}
+
+/* Zinc (Gri - Varsayılan) */
+[data-theme="zinc"] {
+  --primary: 240 5.9% 10%;
+  --primary-foreground: 0 0% 98%;
+  --ring: 240 5.9% 10%;
+}
+.dark [data-theme="zinc"] {
+  --primary: 0 0% 98%;
+  --primary-foreground: 240 5.9% 10%;
+  --ring: 240 4.9% 83.9%;
+}
 
 @layer base {
   * {

@@ -3,36 +3,19 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Palette,
-  Moon,
-  Sun,
-  Monitor,
-  Globe,
-  Coins,
-  Check,
-  User,
-} from "lucide-react";
+import { Palette, Moon, Sun, Monitor, Globe, Coins, User } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useThemeColor } from "@/components/providers/theme-color-provider";
 import { toast } from "sonner";
 import { updatePreferences } from "@/app/actions/settings";
 import { useRouter } from "next/navigation";
 
-const COLORS = [
-  { name: "blue", label: "Mavi", color: "bg-blue-500" },
-  { name: "green", label: "Yeşil", color: "bg-green-500" },
-  { name: "orange", label: "Turuncu", color: "bg-orange-500" },
-  { name: "rose", label: "Gül", color: "bg-pink-500" },
-  { name: "yellow", label: "Sarı", color: "bg-yellow-500" },
-  { name: "zinc", label: "Gri", color: "bg-zinc-500" },
-];
+// Renk seçenekleri (COLORS) dizisi kaldırıldı
 
-// Props güncellendi
 interface AppearanceProps {
   initialCurrency?: string;
   initialLanguage?: string;
-  initialGender?: string; // <-- YENİ
+  initialGender?: string;
 }
 
 export function AppearanceWidget({
@@ -41,19 +24,22 @@ export function AppearanceWidget({
   initialGender,
 }: AppearanceProps) {
   const { setTheme, theme } = useTheme();
-  const { themeColor, setThemeColor } = useThemeColor();
+  // useThemeColor hook'u arka planda var olan rengi korumak için kalabilir,
+  // ancak UI'da değiştirmeyeceğiz.
+  const { themeColor } = useThemeColor();
   const router = useRouter();
 
   const [currency, setCurrency] = useState(initialCurrency || "TL");
   const [language, setLanguage] = useState(initialLanguage || "tr");
-  const [gender, setGender] = useState(initialGender || "male"); // <-- YENİ
+  const [gender, setGender] = useState(initialGender || "male");
 
   const handleSave = async () => {
     const formData = new FormData();
+    // Mevcut themeColor'ı bozmadan gönderiyoruz
     formData.append("themeColor", themeColor);
     formData.append("language", language);
     formData.append("currency", currency);
-    formData.append("gender", gender); // <-- YENİ
+    formData.append("gender", gender);
 
     const res = await updatePreferences(formData);
     if (res?.error) {
@@ -76,7 +62,7 @@ export function AppearanceWidget({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-8">
-        {/* AYDINLIK / KARANLIK MOD (Aynı) */}
+        {/* 1. AYDINLIK / KARANLIK MOD */}
         <div className="space-y-3">
           <label className="text-sm font-medium">Mod</label>
           <div className="grid grid-cols-3 gap-2">
@@ -110,34 +96,9 @@ export function AppearanceWidget({
           </div>
         </div>
 
-        {/* RENK TEMASI (Aynı) */}
-        <div className="space-y-3">
-          <label className="text-sm font-medium">Renk Teması</label>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-            {COLORS.map(c => (
-              <button
-                key={c.name}
-                onClick={() => setThemeColor(c.name as any)}
-                className={`flex flex-col items-center justify-center gap-2 p-2 rounded-lg border-2 transition-all ${
-                  themeColor === c.name
-                    ? "border-primary bg-accent"
-                    : "border-transparent hover:bg-accent/50"
-                }`}
-              >
-                <div
-                  className={`h-6 w-6 rounded-full ${c.color} flex items-center justify-center text-white`}
-                >
-                  {themeColor === c.name && <Check className="h-3 w-3" />}
-                </div>
-                <span className="text-xs font-medium capitalize">
-                  {c.label}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* --- RENK TEMASI SEÇİCİSİ KALDIRILDI --- */}
 
-        {/* DİĞER AYARLAR */}
+        {/* 2. DİĞER AYARLAR (Dil, Para Birimi, Cinsiyet) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium flex items-center gap-2">
@@ -168,7 +129,6 @@ export function AppearanceWidget({
               <option value="GBP">Sterlin (£)</option>
             </select>
           </div>
-          {/* YENİ: CİNSİYET SEÇİMİ */}
           <div className="space-y-2">
             <label className="text-sm font-medium flex items-center gap-2">
               <User className="h-4 w-4" /> Cinsiyet

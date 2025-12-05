@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { MembersWidget } from "@/components/dashboard/settings/MembersWidget";
 import { AppearanceWidget } from "@/components/dashboard/settings/AppearanceWidget";
 import { getFamilyMembers, getInvitations } from "@/app/actions/family";
-import { PreferencesWidget } from "@/components/dashboard/settings/PreferencesWidget";
+// PreferencesWidget importunu kaldırdık çünkü artık kullanmıyoruz.
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -51,22 +51,17 @@ export default async function SettingsPage() {
           />
         </div>
 
-        <div className="md:col-span-2 flex flex-col md:flex-row gap-6">
-          {/* Uygulama Ayarları */}
-          <div className="space-y-4 flex-1 w-full">
-            <h2 className="text-xl font-semibold border-b pb-2 text-gray-800 dark:text-gray-200">
-              Uygulama Ayarları
-            </h2>
-            <PreferencesWidget />
-          </div>
-
-          {/* Görünüm */}
-          <div className="space-y-4 flex-1 w-full">
-            <h2 className="text-xl font-semibold border-b pb-2 text-gray-800 dark:text-gray-200">
-              Görünüm
-            </h2>
-            <AppearanceWidget />
-          </div>
+        {/* GÖRÜNÜM VE TERCİHLER (Tek parça halinde, tam genişlik veya yarım olabilir) */}
+        <div className="space-y-4 md:col-span-2">
+          <h2 className="text-xl font-semibold border-b pb-2 text-gray-800 dark:text-gray-200">
+            Görünüm ve Uygulama Ayarları
+          </h2>
+          {/* AppearanceWidget zaten dil, para birimi ve cinsiyet ayarlarını içeriyor */}
+          <AppearanceWidget
+            initialCurrency={profile.preferred_currency}
+            initialLanguage={profile.preferred_language}
+            initialGender={profile.gender}
+          />
         </div>
       </div>
     </div>

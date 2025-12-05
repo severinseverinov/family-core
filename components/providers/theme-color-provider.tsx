@@ -1,9 +1,16 @@
 "use client";
 
 import * as React from "react";
+import { useEffect, useState } from "react"; // DÜZELTME: En üste alındı
 import { createClient } from "@/utils/supabase/client";
 
-type ThemeColor = "zinc" | "blue" | "green" | "orange" | "rose" | "yellow";
+export type ThemeColor =
+  | "zinc"
+  | "blue"
+  | "green"
+  | "orange"
+  | "rose"
+  | "yellow";
 
 interface ThemeColorProviderProps {
   children: React.ReactNode;
@@ -26,9 +33,10 @@ export function ThemeColorProvider({
   children,
   defaultTheme = "blue",
 }: ThemeColorProviderProps) {
-  const [themeColor, setThemeColor] = React.useState<ThemeColor>(defaultTheme);
-  const [mounted, setMounted] = React.useState(false);
+  const [themeColor, setThemeColor] = useState<ThemeColor>(defaultTheme);
+  const [mounted, setMounted] = useState(false);
 
+  // 1. Veritabanından kayıtlı temayı çek
   useEffect(() => {
     const fetchTheme = async () => {
       const supabase = createClient();
@@ -50,15 +58,19 @@ export function ThemeColorProvider({
     fetchTheme();
   }, []);
 
+  // 2. DOM'a (body etiketine) data-theme attribute'unu uygula
   useEffect(() => {
     const body = document.body;
+    // Önceki temayı temizle
     body.removeAttribute("data-theme");
-    if (themeColor !== "zinc") {
+
+    // Eğer Zinc (varsayılan) değilse yeni temayı ekle
+    if (themeColor && themeColor !== "zinc") {
       body.setAttribute("data-theme", themeColor);
     }
   }, [themeColor]);
 
-  // Hydration hatasını önlemek için mounted kontrolü
+  // Hydration hatasını önlemek için
   if (!mounted) return <>{children}</>;
 
   return (
@@ -67,6 +79,3 @@ export function ThemeColorProvider({
     </ThemeColorContext.Provider>
   );
 }
-
-// React.useEffect için kısayol
-import { useEffect } from "react";
