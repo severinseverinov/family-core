@@ -155,11 +155,6 @@ export default async function Dashboard() {
           <div className="h-[320px]">
             <PetWidget familyMembers={membersData.members || []} />
           </div>
-
-          {/* 6. Aile Kasası */}
-          <div className="h-[300px]">
-            <VaultWidget />
-          </div>
         </div>
       </div>
     </div>

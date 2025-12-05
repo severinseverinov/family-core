@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { MobileNav } from "./MobileNav";
+import { VaultNavButton } from "./VaultNavButton"; // <-- YENİ: Kasa Butonu Eklendi
 
 function getFlagEmoji(countryCode: string) {
   const codePoints = countryCode
@@ -24,7 +25,7 @@ export async function Navbar() {
 
   const headersList = await headers();
   const countryCode = headersList.get("x-vercel-ip-country") || "TR";
-  const flag = getFlagEmoji(countryCode);
+  // const flag = getFlagEmoji(countryCode); // İsteğe bağlı bayrak
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
@@ -80,7 +81,11 @@ export async function Navbar() {
           {/* SAĞ: AKSİYONLAR */}
           <div className="flex items-center gap-4">
             {user ? (
-              <UserMenu user={user} />
+              <>
+                {/* YENİ: Aile Kasası Butonu (Masaüstü için) */}
+                <VaultNavButton />
+                <UserMenu user={user} />
+              </>
             ) : (
               <Link href="/login">
                 <Button variant="default" size="sm" className="gap-2 shadow-sm">
