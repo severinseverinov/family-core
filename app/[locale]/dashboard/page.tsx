@@ -11,6 +11,7 @@ import { PetWidget } from "@/components/dashboard/widgets/PetWidget";
 import { KitchenWidget } from "@/components/dashboard/widgets/KitchenWidget";
 import { GamificationWidget } from "@/components/dashboard/widgets/GamificationWidget";
 import { VaultWidget } from "@/components/dashboard/widgets/VaultWidget";
+import { DynamicBackground } from "@/components/dashboard/DynamicBackground";
 
 // Actionlar
 import { getDashboardItems, getPublicHolidays } from "@/app/actions/events";
@@ -90,6 +91,7 @@ export default async function Dashboard() {
 
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-[1600px] mx-auto">
+      <DynamicBackground />
       {/* Başlık */}
       <div className="flex justify-between items-center">
         <div>
