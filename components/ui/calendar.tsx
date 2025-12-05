@@ -1,172 +1,152 @@
 "use client";
 
 import * as React from "react";
+import {
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameDay,
+  isSameMonth,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+  Locale,
+} from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker";
-
 import { cn } from "@/lib/utils";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 
-export type CalendarProps = React.ComponentProps<typeof DayPicker> & {
-  buttonVariant?: React.ComponentProps<typeof Button>["variant"];
-  renderDay?: (date: Date) => React.ReactNode;
-};
+export interface CalendarProps {
+  mode?: "single";
+  selected?: Date;
+  onSelect?: (date: Date) => void;
+  className?: string;
+  locale?: Locale;
+  /** Gün hücresinin içine ekstra içerik basmak için (Hava durumu vb.) */
+  renderDayContent?: (date: Date) => React.ReactNode;
+  /** Özel günleri (Tatil vb.) işaretlemek için */
+  modifiers?: {
+    holiday?: Date[];
+  };
+  modifiersStyles?: {
+    holiday?: React.CSSProperties;
+  };
+}
 
-function Calendar({
+export function Calendar({
   className,
-  classNames,
-  showOutsideDays = true,
-  captionLayout = "label",
-  buttonVariant = "ghost",
-  formatters,
-  components,
-  renderDay,
-  ...props
+  selected,
+  onSelect,
+  locale,
+  renderDayContent,
+  modifiers,
+  modifiersStyles,
 }: CalendarProps) {
-  const defaultClassNames = getDefaultClassNames();
+  // Takvimin o an gösterdiği ay (Gezinme için)
+  const [currentMonth, setCurrentMonth] = React.useState(
+    selected || new Date()
+  );
+
+  // Ayın başı ve sonu
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(monthStart);
+
+  // Takvim ızgarasının başı (Önceki aydan sarkan günler dahil)
+  const startDate = startOfWeek(monthStart, { weekStartsOn: 1 }); // Pzt başlasın
+  const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
+
+  // Tüm günlerin listesi
+  const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
+
+  // Haftanın gün isimleri (Pzt, Sal...)
+  const weekDays = eachDayOfInterval({
+    start: startOfWeek(new Date(), { weekStartsOn: 1 }),
+    end: endOfWeek(new Date(), { weekStartsOn: 1 }),
+  });
+
+  const handlePrevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
+  const handleNextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
+
+  const handleDayClick = (day: Date) => {
+    if (onSelect) onSelect(day);
+  };
 
   return (
-    <DayPicker
-      showOutsideDays={showOutsideDays}
-      className={cn("p-3", className)}
-      captionLayout={captionLayout}
-      formatters={{
-        formatMonthDropdown: date =>
-          date.toLocaleString("default", { month: "short" }),
-        ...formatters,
-      }}
-      classNames={{
-        // ANA KAPSAYICI: Genişliği içeriğe göre ayarla
-        root: cn("w-fit h-full", defaultClassNames.root),
+    <div className={cn("p-3 w-fit mx-auto", className)}>
+      {/* ÜST KISIM: AY İSMİ VE BUTONLAR */}
+      <div className="flex items-center justify-between mb-4">
+        <Button
+          variant="outline"
+          className="h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+          onClick={handlePrevMonth}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <div className="text-sm font-medium capitalize">
+          {format(currentMonth, "MMMM yyyy", { locale })}
+        </div>
+        <Button
+          variant="outline"
+          className="h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+          onClick={handleNextMonth}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
 
-        months: cn(
-          "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-          defaultClassNames.months
-        ),
-        month: cn("space-y-4", defaultClassNames.month),
+      {/* HAFTA GÜNLERİ BAŞLIKLARI */}
+      <div className="grid grid-cols-7 mb-2">
+        {weekDays.map(day => (
+          <div
+            key={day.toString()}
+            className="text-muted-foreground rounded-md w-10 text-[0.8rem] font-normal text-center"
+          >
+            {format(day, "EEEEE", { locale })} {/* T, F, S gibi tek harf */}
+          </div>
+        ))}
+      </div>
 
-        // BAŞLIK (AY/YIL)
-        // relative: Navigasyon butonları buna göre konumlanacak
-        caption: cn(
-          "flex justify-center pt-1 relative items-center mb-4 h-10",
-          defaultClassNames.caption
-        ),
-        caption_label: cn(
-          "text-sm font-medium",
-          defaultClassNames.caption_label
-        ),
+      {/* GÜNLER IZGARASI */}
+      <div className="grid grid-cols-7 gap-y-2">
+        {calendarDays.map((day, idx) => {
+          const isSelected = selected ? isSameDay(day, selected) : false;
+          const isToday = isSameDay(day, new Date());
+          const isOutside = !isSameMonth(day, currentMonth);
 
-        // NAVİGASYON (OKLAR)
-        // absolute değil, flex içinde normal akışta bırakıyoruz ama butonlara absolute veriyoruz
-        nav: cn("space-x-1 flex items-center", defaultClassNames.nav),
-
-        // SOL OK (Mutlak Konum: En Sol)
-        button_previous: cn(
-          buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute left-1 top-1 z-10"
-        ),
-
-        // SAĞ OK (Mutlak Konum: En Sağ)
-        button_next: cn(
-          buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute right-1 top-1 z-10"
-        ),
-
-        // --- TABLO YAPISI (KESİN ÇÖZÜM) ---
-        // w-full: Genişliği doldur
-        // border-collapse: Hücre aralarını kapat
-        // table-fixed: Sütunları EŞİT genişliğe zorla (Kaymayı önler)
-        table: "w-full border-collapse space-y-1 table-fixed",
-
-        // BAŞLIK SATIRI (TR)
-        head_row: "flex w-full mb-2",
-
-        // BAŞLIK HÜCRESİ (TH)
-        // w-10: Sabit genişlik (40px)
-        head_cell:
-          "text-muted-foreground rounded-md w-10 font-normal text-[0.8rem] text-center",
-
-        // GÜN SATIRI (TR)
-        row: "flex w-full mt-2",
-
-        // GÜN HÜCRESİ (TD)
-        // h-10 w-10: Sabit kare (40px)
-        cell: "h-10 w-10 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-
-        // GÜN BUTONU
-        // size-full: Hücreyi doldur
-        // !rounded-md: Kare yap
-        day: cn(
-          buttonVariants({ variant: "ghost" }),
-          "h-10 w-10 p-0 font-normal aria-selected:opacity-100 !rounded-md"
-        ),
-
-        // Seçili Gün
-        day_selected:
-          "bg-blue-600 text-white hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white !rounded-md",
-
-        // Bugün
-        day_today:
-          "bg-accent text-accent-foreground !rounded-md border border-blue-200 dark:border-blue-800",
-
-        day_outside:
-          "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
-        day_disabled: "text-muted-foreground opacity-50",
-        day_range_middle:
-          "aria-selected:bg-accent aria-selected:text-accent-foreground",
-        day_hidden: "invisible",
-        ...classNames,
-      }}
-      components={{
-        IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
-        IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
-        DayButton: dayButtonProps => {
-          const content = renderDay
-            ? renderDay(dayButtonProps.day.date)
-            : dayButtonProps.day.date.getDate();
+          // Tatil kontrolü
+          const isHoliday = modifiers?.holiday?.some(h => isSameDay(day, h));
+          const holidayStyle = isHoliday ? modifiersStyles?.holiday : {};
 
           return (
-            <CalendarDayButton {...dayButtonProps}>{content}</CalendarDayButton>
+            <div key={idx} className="relative flex justify-center">
+              <button
+                onClick={() => handleDayClick(day)}
+                style={holidayStyle}
+                className={cn(
+                  "h-10 w-10 p-0 text-sm flex flex-col items-center justify-center rounded-md transition-all relative z-10",
+                  "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none",
+                  isSelected &&
+                    "bg-blue-600 text-white hover:bg-blue-700 hover:text-white focus:bg-blue-700",
+                  isToday &&
+                    !isSelected &&
+                    "bg-accent text-accent-foreground font-bold border border-blue-200 dark:border-blue-800",
+                  isOutside &&
+                    "text-muted-foreground opacity-50 bg-transparent hover:bg-transparent"
+                )}
+              >
+                <span className="z-10 leading-none">{format(day, "d")}</span>
+
+                {/* Dışarıdan gelen içerik (Hava durumu ikonu vb.) */}
+                {renderDayContent && (
+                  <div className="mt-0.5">{renderDayContent(day)}</div>
+                )}
+              </button>
+            </div>
           );
-        },
-        ...components,
-      }}
-      {...props}
-    />
+        })}
+      </div>
+    </div>
   );
 }
-
-function CalendarDayButton({
-  className,
-  day,
-  modifiers,
-  children,
-  ...props
-}: React.ComponentProps<typeof DayButton>) {
-  const ref = React.useRef<HTMLButtonElement>(null);
-
-  React.useEffect(() => {
-    if (modifiers.focused) ref.current?.focus();
-  }, [modifiers.focused]);
-
-  return (
-    <Button
-      ref={ref}
-      variant="ghost"
-      className={cn(
-        "h-10 w-10 p-0 font-normal aria-selected:opacity-100 !rounded-md flex flex-col items-center justify-center gap-0",
-        modifiers.selected &&
-          "bg-blue-600 text-white hover:bg-blue-700 hover:text-white !rounded-md",
-        modifiers.today &&
-          !modifiers.selected &&
-          "bg-accent text-accent-foreground !rounded-md",
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </Button>
-  );
-}
-
-export { Calendar };

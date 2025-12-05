@@ -191,38 +191,35 @@ export function CalendarWidget({ initialHolidays }: CalendarWidgetProps) {
         <div className="p-4 border-r dark:border-gray-800 flex justify-center items-start bg-gray-50/30 dark:bg-black/20 shrink-0">
           <Calendar
             key={weather ? "weather-loaded" : "weather-loading"}
-            mode="single"
             selected={selectedDate}
-            onSelect={setSelectedDate}
+            onSelect={date => setSelectedDate(date)}
             locale={dateLocale}
             className="rounded-md"
-            renderDay={date => {
+            // Tatil Günleri
+            modifiers={{ holiday: holidays.map(h => new Date(h.date)) }}
+            modifiersStyles={{
+              holiday: { color: "#ef4444", fontWeight: "bold" },
+            }}
+            // HAVA DURUMU İÇERİĞİ
+            renderDayContent={date => {
               const dayStr = format(date, "yyyy-MM-dd");
+
+              // Hava durumu verisini bul
               const weatherIndex = weather?.daily?.time
                 ? weather.daily.time.indexOf(dayStr)
                 : -1;
+
               let info = null;
               if (weatherIndex > -1 && weather?.daily?.weather_code) {
                 info = getWeatherIcon(weather.daily.weather_code[weatherIndex]);
               }
-              return (
-                <div className="w-full h-full flex flex-col items-center justify-center pt-0.5">
-                  <span className="text-sm font-medium leading-none">
-                    {date.getDate()}
-                  </span>
-                  {info ? (
-                    <div className="mt-1">
-                      <info.icon className={`h-3 w-3 ${info.color}`} />
-                    </div>
-                  ) : (
-                    <div className="h-3 w-3 mt-1"></div>
-                  )}
-                </div>
-              );
-            }}
-            modifiers={{ holiday: holidays.map(h => new Date(h.date)) }}
-            modifiersStyles={{
-              holiday: { color: "#ef4444", fontWeight: "bold" },
+
+              // Sadece ikonu döndür (Gün numarası Calendar bileşeninin içinde zaten var)
+              if (info) {
+                return <info.icon className={`h-3 w-3 ${info.color}`} />;
+              }
+              // Hizalama bozulmasın diye boşluk
+              return <div className="h-3 w-3" />;
             }}
           />
         </div>
