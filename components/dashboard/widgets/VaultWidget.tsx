@@ -15,7 +15,6 @@ import {
   Trash2,
   Image as ImageIcon,
   File as FileIcon,
-  Download,
   QrCode,
   ExternalLink,
   ArrowUpDown,
@@ -42,7 +41,7 @@ import {
   deleteVaultItem,
   getFileUrl,
 } from "@/app/actions/vault";
-import { getFamilyMembers } from "@/app/actions/family"; // Üyeleri çekmek için
+import { getFamilyMembers } from "@/app/actions/family";
 import { useTranslations } from "next-intl";
 import QRCode from "react-qr-code";
 import { useTheme } from "next-themes";
@@ -57,13 +56,19 @@ const ICONS: Record<string, any> = {
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-export function VaultWidget() {
+// 1. ARAYÜZ (INTERFACE) TANIMI EKLENDİ
+interface VaultWidgetProps {
+  className?: string;
+}
+
+// 2. FONKSİYON İMZASI GÜNCELLENDİ (Props Karşılama)
+export function VaultWidget({ className }: VaultWidgetProps) {
   const t = useTranslations("Vault");
   const tCommon = useTranslations("Common");
   const { resolvedTheme } = useTheme();
 
   const [items, setItems] = useState<any[]>([]);
-  const [members, setMembers] = useState<any[]>([]); // Aile üyeleri
+  const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [isOpen, setIsOpen] = useState(false);
@@ -74,7 +79,6 @@ export function VaultWidget() {
   const [secretValue, setSecretValue] = useState("");
   const [addType, setAddType] = useState<"text" | "file">("text");
 
-  // Yeni State'ler
   const [sortBy, setSortBy] = useState<"date" | "name" | "category">("date");
   const [visibility, setVisibility] = useState("parents");
   const [assignedTo, setAssignedTo] = useState<string[]>([]);
@@ -99,13 +103,11 @@ export function VaultWidget() {
     loadData();
   }, []);
 
-  // SIRALAMA
   const sortedItems = useMemo(() => {
     const list = [...items];
     list.sort((a, b) => {
       if (sortBy === "name") return a.title.localeCompare(b.title);
       if (sortBy === "category") return a.category.localeCompare(b.category);
-      // Date (Default)
       return (
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
@@ -195,7 +197,13 @@ export function VaultWidget() {
   const qrFgColor = resolvedTheme === "dark" ? "#ffffff" : "#000000";
 
   return (
-    <Card className="h-full flex flex-col border-red-100 bg-red-50/30 dark:bg-red-900/10 dark:border-red-900/30 shadow-sm">
+    // 3. CLASSNAME KULLANIMI: Dışarıdan gelen stil, mevcut stile eklendi
+    <Card
+      className={cn(
+        "h-full flex flex-col border-red-100 bg-red-50/30 dark:bg-red-900/10 dark:border-red-900/30 shadow-sm",
+        className
+      )}
+    >
       <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-sm font-medium flex gap-2 text-red-700 dark:text-red-400">
           <Lock className="h-4 w-4" />
@@ -203,7 +211,6 @@ export function VaultWidget() {
         </CardTitle>
 
         <div className="flex gap-1">
-          {/* Sıralama Menüsü */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -269,7 +276,6 @@ export function VaultWidget() {
                         <p className="text-sm font-medium truncate text-gray-900 dark:text-gray-100">
                           {item.title}
                         </p>
-                        {/* Görünürlük İkonu */}
                         {item.visibility === "family" && (
                           <Users className="h-3 w-3 text-green-500" />
                         )}
@@ -348,7 +354,7 @@ export function VaultWidget() {
           </div>
         )}
 
-        {/* EKLEME MODALI */}
+        {/* MODALLAR (Aynı kaldı) */}
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogContent>
             <DialogHeader>
@@ -418,7 +424,6 @@ export function VaultWidget() {
                 </select>
               </div>
 
-              {/* KİŞİ SEÇİMİ (Sadece 'member' ise) */}
               {visibility === "member" && (
                 <div className="space-y-1 animate-in fade-in">
                   <label className="text-xs text-gray-500">
@@ -458,7 +463,6 @@ export function VaultWidget() {
           </DialogContent>
         </Dialog>
 
-        {/* QR MODALI (Aynı) */}
         <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
           <DialogContent className="sm:max-w-sm">
             <DialogHeader>
@@ -485,7 +489,6 @@ export function VaultWidget() {
           </DialogContent>
         </Dialog>
 
-        {/* DOSYA ÖNİZLEME (Aynı) */}
         <Dialog open={isFileOpen} onOpenChange={setIsFileOpen}>
           <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 overflow-hidden">
             <DialogHeader className="p-4 border-b dark:border-gray-800 flex flex-row items-center justify-between">
