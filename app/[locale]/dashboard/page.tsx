@@ -7,7 +7,7 @@ import { getTranslations } from "next-intl/server";
 
 // Widgetlar
 import { CalendarWidget } from "@/components/dashboard/widgets/CalendarWidget";
-import { TasksWidget } from "@/components/dashboard/widgets/TasksWidget"; // YENİ EKLENDİ
+import { TasksWidget } from "@/components/dashboard/widgets/TasksWidget";
 import { PetWidget } from "@/components/dashboard/widgets/PetWidget";
 import { KitchenWidget } from "@/components/dashboard/widgets/KitchenWidget";
 import { GamificationWidget } from "@/components/dashboard/widgets/GamificationWidget";
@@ -92,7 +92,7 @@ export default async function Dashboard() {
   const userName =
     profile.full_name || user.email?.split("@")[0] || "Kullanıcı";
   const userRole = profile.role || "member";
-  const userGender = profile.gender || "male"; // <-- YENİ: Cinsiyet verisi
+  const userGender = profile.gender || "male";
 
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-[1600px] mx-auto relative min-h-screen">
@@ -118,19 +118,18 @@ export default async function Dashboard() {
           <div className="h-fit">
             <CalendarWidget
               initialHolidays={holidays}
-              userGender={userGender}
-              // Takvim artık sadece bilgi gösteriyor, liste TasksWidget'ta
+              // userGender prop'u buradan kaldırıldı
             />
           </div>
 
-          {/* 2. Görevler ve Etkinlikler (YENİ WIDGET) */}
+          {/* 2. Görevler ve Etkinlikler */}
           <div className="h-[450px]">
             <TasksWidget
               initialItems={dashboardData.items || []}
               userRole={userRole}
               userId={user.id}
               familyMembers={membersData.members || []}
-              userGender={userGender}
+              userGender={userGender} // TasksWidget hala bunu kullanıyor
             />
           </div>
 
