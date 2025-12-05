@@ -11,6 +11,7 @@ import { PetWidget } from "@/components/dashboard/widgets/PetWidget";
 import { KitchenWidget } from "@/components/dashboard/widgets/KitchenWidget";
 import { GamificationWidget } from "@/components/dashboard/widgets/GamificationWidget";
 import { VaultWidget } from "@/components/dashboard/widgets/VaultWidget";
+import { FamilyWidget } from "@/components/dashboard/widgets/FamilyWidget";
 import { DynamicBackground } from "@/components/dashboard/DynamicBackground";
 
 // Actionlar
@@ -21,7 +22,8 @@ import {
   getPointHistory,
   getPointRules,
 } from "@/app/actions/gamification";
-import { getFamilyMembers } from "@/app/actions/family";
+
+import { getFamilyMembers, getFamilyDetails } from "@/app/actions/family";
 
 export default async function Dashboard() {
   const t = await getTranslations("Dashboard");
@@ -75,6 +77,7 @@ export default async function Dashboard() {
     historyData,
     rulesData,
     membersData,
+    familyRes,
   ] = await Promise.all([
     getPublicHolidays(countryCode),
     getDashboardItems(),
@@ -83,6 +86,7 @@ export default async function Dashboard() {
     getPointHistory(),
     getPointRules(),
     getFamilyMembers(),
+    getFamilyDetails(),
   ]);
 
   const userName =
@@ -92,16 +96,14 @@ export default async function Dashboard() {
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-[1600px] mx-auto">
       <DynamicBackground />
-      {/* Başlık */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {t("welcome", { name: userName })}
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t("subtitle", { country: countryCode })}
-          </p>
-        </div>
+      {/* 1. TEK PARÇA BAŞLIK (AİLE KARTI) */}
+      <div className="relative z-10 w-full">
+        <FamilyWidget
+          familyData={familyRes.family}
+          userRole={userRole}
+          userName={userName} // <-- Yeni Prop
+          locationName={countryCode} // <-- Yeni Prop
+        />
       </div>
 
       {/* Grid Yerleşimi */}

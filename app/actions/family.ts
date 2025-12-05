@@ -229,3 +229,71 @@ export async function acceptInvitation(token: string) {
   revalidatePath("/dashboard");
   return { success: true };
 }
+// 8. Aile Bilgilerini Getir (Resim ve İsim)
+export async function getFamilyDetails() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { family: null };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("family_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.family_id) return { family: null };
+
+  const { data: family } = await supabase
+    .from("families")
+    .select("id, name, image_url")
+    .eq("id", profile.family_id)
+    .single();
+
+  return { family };
+}
+
+// 9. Aile Resmini Güncelle
+export async function updateFamilyImage(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum açın" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("family_id, role")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.family_id) return { error: "Aile yok" };
+  if (!["owner", "admin"].includes(profile.role))
+    return { error: "Yetkisiz işlem" };
+
+  const file = formData.get("image") as File;
+  if (!file) return { error: "Dosya yok" };
+
+  const fileExt = file.name.split(".").pop();
+  const fileName = `family/${profile.family_id}-${Date.now()}.${fileExt}`;
+
+  // Resmi Yükle
+  const { error: uploadError } = await supabase.storage
+    .from("images")
+    .upload(fileName, file);
+  if (uploadError) return { error: "Yükleme hatası" };
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from("images").getPublicUrl(fileName);
+
+  // DB Güncelle
+  const { error: dbError } = await supabase
+    .from("families")
+    .update({ image_url: publicUrl })
+    .eq("id", profile.family_id);
+
+  if (dbError) return { error: dbError.message };
+
+  revalidatePath("/dashboard");
+  return { success: true, imageUrl: publicUrl };
+}
