@@ -127,7 +127,8 @@ export async function getDashboardItems(dateStr?: string) {
         category: e.category,
         time: e.start_time,
         is_completed: e.is_completed,
-        completed_by: e.is_completed ? "Tamamlandı" : null, // İsim yerine basit metin
+        // HATA BURADAYDI: null yerine undefined kullanıyoruz
+        completed_by: e.is_completed ? "Tamamlandı" : undefined,
         frequency: "none",
         privacy_level: e.privacy_level,
         assigned_to: e.assigned_to ? e.assigned_to.split(",") : null,
