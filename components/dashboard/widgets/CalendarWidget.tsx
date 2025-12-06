@@ -22,7 +22,7 @@ import {
   Stethoscope,
   Syringe,
   Baby,
-  SunDim, // <-- EKLENDİ
+  SunDim,
 } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { Calendar } from "@/components/ui/calendar";
@@ -260,8 +260,8 @@ export function CalendarWidget({
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col md:flex-row gap-0 p-0 overflow-hidden min-h-0 items-stretch">
-        {/* SOL: TAKVİM (%50) */}
-        <div className="w-full md:w-1/2 p-4 border-r dark:border-gray-800/50 flex justify-center items-start bg-transparent shrink-0 overflow-auto">
+        {/* SOL: TAKVİM (Masaüstünde Sol, Mobilde Alt - Order 2) */}
+        <div className="w-full md:w-1/2 order-2 md:order-1 p-4 border-t md:border-t-0 md:border-r dark:border-gray-800/50 flex justify-center items-start bg-transparent shrink-0 overflow-auto">
           <Calendar
             key={weather ? "weather-loaded" : "weather-loading"}
             selected={selectedDate}
@@ -272,7 +272,6 @@ export function CalendarWidget({
             modifiersStyles={{ holiday: { color: "#ef4444" } }}
             renderDayContent={date => {
               const dayStr = format(date, "yyyy-MM-dd");
-
               const weatherIndex = weather?.daily?.time
                 ? weather.daily.time.indexOf(dayStr)
                 : -1;
@@ -288,14 +287,13 @@ export function CalendarWidget({
               const hasDoctor = dayEvents.some(e => e.category === "doctor");
               const hasVaccine = dayEvents.some(e => e.category === "vaccine");
               const hasBaby = dayEvents.some(e => e.category === "baby");
-
               const hasSpecialIcon =
                 hasHealth || hasDoctor || hasVaccine || hasBaby;
               const hasOther = dayEvents.length > 0 && !hasSpecialIcon;
 
               return (
                 <div className="w-full h-full flex flex-col justify-between items-center py-1">
-                  {/* ÜST: ETKİNLİK İKONLARI */}
+                  {/* İkonlar */}
                   <div className="h-3 flex items-end justify-center gap-0.5 w-full">
                     {hasHealth && (
                       <Heart className="h-2.5 w-2.5 text-pink-500 fill-current" />
@@ -309,9 +307,11 @@ export function CalendarWidget({
                     {hasBaby && (
                       <Baby className="h-2.5 w-2.5 text-purple-500" />
                     )}
+                    {hasOther && (
+                      <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                    )}
                   </div>
-
-                  {/* ORTA: GÜN SAYISI */}
+                  {/* Gün Sayısı */}
                   <span
                     className={cn(
                       "text-lg font-bold leading-none z-10",
@@ -322,8 +322,7 @@ export function CalendarWidget({
                   >
                     {date.getDate()}
                   </span>
-
-                  {/* ALT: HAVA DURUMU */}
+                  {/* Hava Durumu */}
                   <div className="h-3 flex items-start justify-center w-full">
                     {wInfo && (
                       <wInfo.icon
@@ -343,8 +342,8 @@ export function CalendarWidget({
           />
         </div>
 
-        {/* SAĞ: HAVA DURUMU DETAYLARI (%50) */}
-        <div className="w-full md:w-1/2 flex flex-col border-l dark:border-gray-800/50 bg-transparent">
+        {/* SAĞ: HAVA DURUMU (Masaüstünde Sağ, Mobilde Üst - Order 1) */}
+        <div className="w-full md:w-1/2 order-1 md:order-2 flex flex-col bg-transparent">
           <div className="p-3 text-center border-b dark:border-gray-800/50 bg-white/20 dark:bg-black/10">
             <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100">
               {format(selectedDate, "d MMMM yyyy", { locale: dateLocale })}
