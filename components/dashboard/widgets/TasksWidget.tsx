@@ -104,16 +104,12 @@ export function TasksWidget({
 
   const dateLocale = locale === "tr" ? tr : locale === "de" ? de : enUS;
 
-  // --- FİLTRELEME ---
   const taskList = (items || []).filter(i => i.type === "task");
 
   const eventList = (items || []).filter(i => {
     if (i.type !== "event") return false;
-
-    // Tek seferlik etkinliklerde, seçili günün herhangi bir saatinde mi diye bak
     if (i.frequency === "none" && i.time) {
       const eventDate = new Date(i.time);
-      // Etkinlik tarihi, seçili günün 00:00 ile 23:59 arasında mı?
       return isWithinInterval(eventDate, {
         start: startOfDay(selectedDate),
         end: endOfDay(selectedDate),
@@ -122,12 +118,10 @@ export function TasksWidget({
     return true;
   });
 
-  // URL'deki Tarih Değişirse
   useEffect(() => {
     const dateParam = searchParams.get("date");
     if (dateParam) {
       const newDate = new Date(dateParam);
-      // Eğer gün değiştiyse state'i güncelle ve veriyi çek
       if (!isSameDay(newDate, selectedDate)) {
         setSelectedDate(newDate);
         fetchItems(newDate);
@@ -146,7 +140,6 @@ export function TasksWidget({
         setItems([]);
       }
     } catch (e) {
-      console.error(e);
       setItems([]);
     } finally {
       setLoading(false);
@@ -157,7 +150,6 @@ export function TasksWidget({
     const newDate = addDays(selectedDate, days);
     setSelectedDate(newDate);
     fetchItems(newDate);
-
     const dateStr = format(newDate, "yyyy-MM-dd");
     const params = new URLSearchParams(searchParams.toString());
     params.set("date", dateStr);
@@ -191,9 +183,8 @@ export function TasksWidget({
 
   const handleEventComplete = async (eventId: string) => {
     const res = await completeEvent(eventId);
-    if (res?.error) {
-      toast.error(res.error);
-    } else {
+    if (res?.error) toast.error(res.error);
+    else {
       toast.success("İşaretlendi ✅");
       fetchItems(selectedDate);
       router.refresh();
@@ -207,11 +198,12 @@ export function TasksWidget({
   };
 
   return (
-    <Card className="h-full flex flex-col shadow-sm bg-white dark:bg-gray-900 border-orange-100 dark:border-orange-900/30 relative overflow-hidden">
-      <CardHeader className="pb-2 pt-3 px-3 flex flex-col gap-3 space-y-0 border-b border-orange-50 dark:border-gray-800">
+    // DÜZELTME: Arka plan şeffaflaştırıldı
+    <Card className="h-full flex flex-col shadow-sm bg-white/60 dark:bg-gray-900/50 backdrop-blur-md border-orange-100 dark:border-orange-900/30 relative overflow-hidden">
+      <CardHeader className="pb-2 pt-3 px-3 flex flex-col gap-3 space-y-0 border-b border-orange-50/50 dark:border-gray-800/50">
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-2">
-            <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+            <div className="flex bg-white/50 dark:bg-gray-800/50 p-1 rounded-lg">
               <button
                 onClick={() => setActiveTab("tasks")}
                 className={cn(
@@ -247,7 +239,7 @@ export function TasksWidget({
           </Button>
         </div>
 
-        <div className="flex items-center justify-center gap-2 bg-gray-50 dark:bg-gray-800 p-1 rounded-md">
+        <div className="flex items-center justify-center gap-2 bg-white/40 dark:bg-gray-800/40 p-1 rounded-md">
           <Button
             variant="ghost"
             size="icon"
@@ -279,7 +271,6 @@ export function TasksWidget({
           </p>
         ) : (
           <>
-            {/* GÖREVLER TABI */}
             {activeTab === "tasks" &&
               (taskList.length === 0 ? (
                 <div className="text-center py-10 text-gray-400 text-xs opacity-60">
@@ -288,18 +279,18 @@ export function TasksWidget({
               ) : (
                 taskList.map(task => {
                   const isDone = task.status === "completed";
-                  const isAssignedToMe =
-                    !task.assigned_to || task.assigned_to.includes(userId);
                   const isPending = task.status === "pending";
                   const isChild = !["owner", "admin"].includes(userRole);
+                  const isAssignedToMe =
+                    !task.assigned_to || task.assigned_to.includes(userId);
+
                   return (
+                    // Liste öğesi arka planı: bg-white/60
                     <div
                       key={task.id}
                       className={cn(
-                        "flex items-center justify-between p-3 rounded-lg border shadow-sm transition-all",
-                        isDone
-                          ? "bg-green-50/50 border-green-200 opacity-70 dark:bg-green-900/10 dark:border-green-900"
-                          : "bg-white border-orange-100 hover:border-orange-300 dark:bg-gray-900 dark:border-orange-900/50"
+                        "flex items-center justify-between p-3 rounded-lg border shadow-sm transition-all bg-white/60 dark:bg-gray-900/40 border-orange-100 hover:border-orange-300 dark:border-gray-800",
+                        isDone && "bg-green-50/40 border-green-200 opacity-70"
                       )}
                     >
                       <div className="flex items-center gap-3 overflow-hidden">
@@ -343,12 +334,12 @@ export function TasksWidget({
                       </div>
                       <div className="shrink-0 flex items-center gap-1">
                         {isDone ? (
-                          <span className="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-1 rounded dark:bg-green-900/20 dark:text-green-400">
+                          <span className="text-[10px] text-green-600 font-bold bg-green-50/50 px-2 py-1 rounded">
                             Yapıldı
                           </span>
                         ) : isPending ? (
                           isChild ? (
-                            <span className="text-[10px] text-orange-500 animate-pulse font-medium bg-orange-50 px-2 py-1 rounded dark:bg-orange-900/20">
+                            <span className="text-[10px] text-orange-500 animate-pulse font-medium bg-orange-50 px-2 py-1 rounded">
                               Onay Bekliyor
                             </span>
                           ) : (
@@ -364,7 +355,7 @@ export function TasksWidget({
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 px-3 text-xs font-medium text-orange-600 bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/20 dark:text-orange-400"
+                            className="h-8 px-3 text-xs font-medium text-orange-600 bg-orange-50 hover:bg-orange-100 dark:text-orange-400"
                             onClick={() =>
                               handleCompleteTask(task.routine_id!, task.points!)
                             }
@@ -382,7 +373,6 @@ export function TasksWidget({
                 })
               ))}
 
-            {/* HATIRLATMALAR TABI */}
             {activeTab === "events" &&
               (eventList.length === 0 ? (
                 <div className="text-center py-10 text-gray-400 text-xs opacity-60">
@@ -415,13 +405,14 @@ export function TasksWidget({
                   const canComplete = event.frequency === "none";
 
                   return (
+                    // Liste öğesi arka planı: bg-white/60
                     <div
                       key={event.id}
                       className={cn(
-                        "flex items-start gap-3 p-3 rounded-lg border shadow-sm transition-all",
+                        "flex items-start gap-3 p-3 rounded-lg border shadow-sm transition-all bg-white/60 dark:bg-gray-900/40 border-l-4",
                         isCompleted
-                          ? "bg-green-50/40 border-green-100 dark:bg-green-900/10 dark:border-green-900"
-                          : "bg-white dark:bg-gray-900 dark:border-gray-800 border-l-4",
+                          ? "bg-green-50/40 border-green-100 border-l-green-500"
+                          : "dark:border-gray-800",
                         !isCompleted &&
                           (event.category === "doctor"
                             ? "border-l-red-500"
@@ -462,7 +453,7 @@ export function TasksWidget({
                         </div>
 
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded w-fit">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 bg-white/50 dark:bg-gray-800/50 px-1.5 py-0.5 rounded w-fit">
                             {event.time
                               ? format(new Date(event.time), "HH:mm")
                               : "Tüm Gün"}
@@ -514,9 +505,10 @@ export function TasksWidget({
           </>
         )}
       </CardContent>
-
-      {/* ... (Dialog kodu aynı) ... */}
+      {/* Dialog aynı */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        {/* ... Dialog içeriği (aynı) ... */}
+        {/* (Kısaltmak için buraya koymadım ama var olan dialog kodunu kullanın) */}
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>{t("addReminder")}</DialogTitle>

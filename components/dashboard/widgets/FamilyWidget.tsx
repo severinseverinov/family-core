@@ -24,7 +24,7 @@ interface FamilyWidgetProps {
   userRole: string;
   userName: string;
   locationName: string;
-  todayEvents?: any[]; // YENİ PROP
+  todayEvents?: any[];
 }
 
 export function FamilyWidget({
@@ -40,18 +40,13 @@ export function FamilyWidget({
   const router = useRouter();
   const isAdmin = ["owner", "admin"].includes(userRole);
 
-  // Bugünün hatırlatmalarını filtrele
   useEffect(() => {
     const today = new Date();
     const filtered = todayEvents.filter(item => {
-      // Sadece 'event' tipindekileri al (görevler hariç)
       if (item.type !== "event") return false;
-
-      // Eğer tek seferlikse tarih kontrolü yap
       if (item.frequency === "none" && item.time) {
         return isSameDay(new Date(item.time), today);
       }
-      // Tekrarlayanlar zaten backend'den bugüne özel filtrelenip geliyor
       return true;
     });
     setTodaysReminders(filtered);
@@ -76,19 +71,20 @@ export function FamilyWidget({
   };
 
   return (
-    <Card className="relative overflow-hidden border-none shadow-lg w-full min-h-[180px]">
-      {/* Arka Plan Katmanı */}
-      <div className="absolute inset-0 z-0">
+    // DÜZELTME: Kartın arka planı şeffaf ve blurlu
+    <Card className="relative overflow-hidden border-none shadow-lg w-full min-h-[180px] bg-transparent backdrop-blur-md">
+      {/* Arka Plan Katmanı - OPAKLIĞI DÜŞÜRÜLDÜ (opacity-70) */}
+      <div className="absolute inset-0 z-0 opacity-70">
         {familyData?.image_url ? (
           <>
             <div
               className="absolute inset-0 bg-cover bg-center"
               style={{ backgroundImage: `url(${familyData.image_url})` }}
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-900/90 via-blue-800/80 to-indigo-900/90 backdrop-blur-[2px]" />
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-900/80 via-blue-800/70 to-indigo-900/80 backdrop-blur-[1px]" />
           </>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-700 dark:from-blue-900 dark:to-indigo-950" />
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/80 to-indigo-700/80 dark:from-blue-900/80 dark:to-indigo-950/80" />
         )}
       </div>
 
@@ -150,14 +146,12 @@ export function FamilyWidget({
 
         {/* SAĞ: Karşılama ve BUGÜNÜN HATIRLATMALARI */}
         <div className="flex flex-col items-center md:items-end text-center md:text-right w-full md:w-auto gap-4 mt-2 md:mt-0">
-          {/* Karşılama Metni */}
           <div>
             <h3 className="text-xl sm:text-2xl font-semibold text-blue-50">
               {t("welcome", { name: userName })}
             </h3>
           </div>
 
-          {/* HATIRLATMA KARTI (Varsa Göster) */}
           {todaysReminders.length > 0 && (
             <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-3 w-full max-w-[300px] flex flex-col gap-2 max-h-[130px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent animate-in fade-in slide-in-from-right-4">
               <div className="flex items-center justify-between sticky top-0 bg-transparent z-10 mb-1">
@@ -168,7 +162,6 @@ export function FamilyWidget({
 
               <div className="space-y-1.5">
                 {todaysReminders.map(event => {
-                  // İkon Seçimi
                   let EventIcon = Clock;
                   let iconBg = "bg-blue-500/20 text-blue-100";
                   if (event.category === "doctor") {

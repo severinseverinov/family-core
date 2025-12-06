@@ -22,7 +22,7 @@ import {
   Stethoscope,
   Syringe,
   Baby,
-  SunDim,
+  SunDim, // <-- EKLENDİ
 } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { Calendar } from "@/components/ui/calendar";
@@ -240,27 +240,28 @@ export function CalendarWidget({
   const weatherInfo = dayWeather ? getWeatherIcon(dayWeather.code) : null;
 
   return (
-    <Card className="h-full flex flex-col shadow-sm relative overflow-hidden bg-white dark:bg-gray-900 border-none">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 z-10 shrink-0 border-b dark:border-gray-800">
+    <Card className="h-full flex flex-col shadow-sm relative overflow-hidden bg-white/60 dark:bg-gray-900/50 backdrop-blur-md border-none">
+      {/* HEADER */}
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 z-10 shrink-0 border-b dark:border-gray-800/50">
         <div className="flex items-center gap-3">
           <CardTitle className="text-sm font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2">
             {t("title")}
           </CardTitle>
           {locationName && (
-            <div className="hidden md:flex items-center text-[10px] text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full">
+            <div className="hidden md:flex items-center text-[10px] text-gray-500 bg-white/50 dark:bg-gray-800/50 px-2 py-1 rounded-full">
               <MapPin className="h-3 w-3 mr-1 text-blue-500" />
               {locationName}
             </div>
           )}
         </div>
-        <div className="text-2xl font-bold text-gray-300 dark:text-gray-700 tabular-nums leading-none">
+        <div className="text-2xl font-bold text-gray-600 dark:text-gray-300 tabular-nums leading-none">
           {format(currentTime, "HH:mm")}
         </div>
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col md:flex-row gap-0 p-0 overflow-hidden min-h-0 items-stretch">
         {/* SOL: TAKVİM (%50) */}
-        <div className="w-full md:w-1/2 p-4 border-r dark:border-gray-800 flex justify-center items-start bg-gray-50/30 dark:bg-black/20 shrink-0 overflow-auto">
+        <div className="w-full md:w-1/2 p-4 border-r dark:border-gray-800/50 flex justify-center items-start bg-transparent shrink-0 overflow-auto">
           <Calendar
             key={weather ? "weather-loaded" : "weather-loading"}
             selected={selectedDate}
@@ -272,7 +273,6 @@ export function CalendarWidget({
             renderDayContent={date => {
               const dayStr = format(date, "yyyy-MM-dd");
 
-              // 1. Hava Durumu
               const weatherIndex = weather?.daily?.time
                 ? weather.daily.time.indexOf(dayStr)
                 : -1;
@@ -283,14 +283,12 @@ export function CalendarWidget({
                 );
               }
 
-              // 2. Etkinlikler
               const dayEvents = getEventsForDate(date);
               const hasHealth = dayEvents.some(e => e.category === "health");
               const hasDoctor = dayEvents.some(e => e.category === "doctor");
               const hasVaccine = dayEvents.some(e => e.category === "vaccine");
               const hasBaby = dayEvents.some(e => e.category === "baby");
 
-              // Eğer özel ikonlardan HİÇBİRİ YOKSA ve başka bir event varsa mavi nokta koy
               const hasSpecialIcon =
                 hasHealth || hasDoctor || hasVaccine || hasBaby;
               const hasOther = dayEvents.length > 0 && !hasSpecialIcon;
@@ -346,8 +344,8 @@ export function CalendarWidget({
         </div>
 
         {/* SAĞ: HAVA DURUMU DETAYLARI (%50) */}
-        <div className="w-full md:w-1/2 flex flex-col border-l dark:border-gray-800 bg-gradient-to-b from-white to-blue-50/30 dark:from-gray-900 dark:to-black">
-          <div className="p-3 text-center border-b dark:border-gray-800 bg-white/50 dark:bg-black/20">
+        <div className="w-full md:w-1/2 flex flex-col border-l dark:border-gray-800/50 bg-transparent">
+          <div className="p-3 text-center border-b dark:border-gray-800/50 bg-white/20 dark:bg-black/10">
             <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100">
               {format(selectedDate, "d MMMM yyyy", { locale: dateLocale })}
             </h2>
@@ -375,8 +373,8 @@ export function CalendarWidget({
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 w-full text-xs text-gray-600 dark:text-gray-300">
-                  <div className="bg-white/60 dark:bg-gray-800/40 p-2 rounded-lg flex flex-col items-center justify-center border border-gray-100 dark:border-gray-800">
-                    <span className="text-[9px] text-gray-400 mb-0.5">
+                  <div className="bg-white/40 dark:bg-black/20 p-2 rounded-lg flex flex-col items-center justify-center border border-white/20 dark:border-gray-800/50">
+                    <span className="text-[9px] text-gray-500 dark:text-gray-400 mb-0.5">
                       Hissedilen
                     </span>
                     <div className="flex items-center gap-1 font-semibold">
@@ -387,8 +385,8 @@ export function CalendarWidget({
                     </div>
                   </div>
 
-                  <div className="bg-white/60 dark:bg-gray-800/40 p-2 rounded-lg flex flex-col items-center justify-center border border-gray-100 dark:border-gray-800">
-                    <span className="text-[9px] text-gray-400 mb-0.5">
+                  <div className="bg-white/40 dark:bg-black/20 p-2 rounded-lg flex flex-col items-center justify-center border border-white/20 dark:border-gray-800/50">
+                    <span className="text-[9px] text-gray-500 dark:text-gray-400 mb-0.5">
                       Rüzgar
                     </span>
                     <div className="flex items-center gap-1 font-semibold">
@@ -400,15 +398,17 @@ export function CalendarWidget({
                     </div>
                   </div>
 
-                  <div className="bg-white/60 dark:bg-gray-800/40 p-2 rounded-lg flex flex-col items-center justify-center border border-gray-100 dark:border-gray-800">
-                    <span className="text-[9px] text-gray-400 mb-0.5">Nem</span>
+                  <div className="bg-white/40 dark:bg-black/20 p-2 rounded-lg flex flex-col items-center justify-center border border-white/20 dark:border-gray-800/50">
+                    <span className="text-[9px] text-gray-500 dark:text-gray-400 mb-0.5">
+                      Nem
+                    </span>
                     <div className="flex items-center gap-1 font-semibold text-blue-600 dark:text-blue-400">
                       <Droplets className="h-3 w-3" />%{dayWeather.humidity}
                     </div>
                   </div>
 
-                  <div className="bg-white/60 dark:bg-gray-800/40 p-2 rounded-lg flex flex-col items-center justify-center border border-gray-100 dark:border-gray-800">
-                    <span className="text-[9px] text-gray-400 mb-0.5">
+                  <div className="bg-white/40 dark:bg-black/20 p-2 rounded-lg flex flex-col items-center justify-center border border-white/20 dark:border-gray-800/50">
+                    <span className="text-[9px] text-gray-500 dark:text-gray-400 mb-0.5">
                       UV İndeksi
                     </span>
                     <div className="flex items-center gap-1 font-semibold text-yellow-600 dark:text-yellow-400">
@@ -417,7 +417,7 @@ export function CalendarWidget({
                     </div>
                   </div>
 
-                  <div className="bg-white/60 dark:bg-gray-800/40 p-2 rounded-lg flex items-center justify-around border border-gray-100 dark:border-gray-800 col-span-2">
+                  <div className="bg-white/40 dark:bg-black/20 p-2 rounded-lg flex items-center justify-around border border-white/20 dark:border-gray-800/50 col-span-2">
                     <div className="flex flex-col items-center">
                       <Sunrise className="h-4 w-4 text-yellow-500 mb-1" />
                       <span className="font-semibold text-[10px]">
@@ -426,7 +426,7 @@ export function CalendarWidget({
                           : "-"}
                       </span>
                     </div>
-                    <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-2" />
+                    <div className="h-6 w-px bg-gray-300 dark:bg-gray-700 mx-2" />
                     <div className="flex flex-col items-center">
                       <Sunset className="h-4 w-4 text-orange-500 mb-1" />
                       <span className="font-semibold text-[10px]">
@@ -437,8 +437,8 @@ export function CalendarWidget({
                     </div>
                   </div>
 
-                  <div className="bg-white/60 dark:bg-gray-800/40 p-2 rounded-lg flex flex-col items-center justify-center border border-gray-100 dark:border-gray-800 col-span-2">
-                    <span className="text-[9px] text-gray-400 mb-0.5">
+                  <div className="bg-white/40 dark:bg-black/20 p-2 rounded-lg flex flex-col items-center justify-center border border-white/20 dark:border-gray-800/50 col-span-2">
+                    <span className="text-[9px] text-gray-500 dark:text-gray-400 mb-0.5">
                       Yağış İhtimali
                     </span>
                     <div className="flex items-center gap-1 font-semibold text-blue-600 dark:text-blue-400">
@@ -448,24 +448,25 @@ export function CalendarWidget({
                 </div>
               </div>
 
-              <div className="border-t dark:border-gray-800 bg-white/80 dark:bg-black/40 backdrop-blur-sm h-28 shrink-0">
+              {/* Alt: Saatlik Şerit */}
+              <div className="border-t dark:border-gray-800/50 bg-white/30 dark:bg-black/30 backdrop-blur-sm h-28 shrink-0">
                 <div className="flex items-center overflow-x-auto gap-3 px-4 h-full no-scrollbar snap-x scroll-pl-4">
                   {hourlyForecast.map((h: any, i: number) => {
                     const info = getWeatherIcon(h.code);
                     return (
                       <div
                         key={i}
-                        className="flex flex-col items-center justify-between min-w-[3.5rem] w-[3.5rem] shrink-0 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-transparent hover:border-blue-200 dark:hover:border-blue-800 transition-all snap-start"
+                        className="flex flex-col items-center justify-between min-w-[3.5rem] w-[3.5rem] shrink-0 p-2 rounded-lg bg-white/40 dark:bg-black/20 border border-transparent hover:border-blue-200 dark:hover:border-blue-800 transition-all snap-start"
                       >
-                        <span className="text-[10px] text-gray-500 font-mono mb-1">
+                        <span className="text-[10px] text-gray-600 dark:text-gray-400 font-mono mb-1">
                           {format(new Date(h.time), "HH:mm")}
                         </span>
                         <info.icon className={`h-5 w-5 ${info.color} mb-1`} />
-                        <span className="text-xs font-bold text-gray-700 dark:text-gray-200">
+                        <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
                           {h.temp}°
                         </span>
                         {h.rain > 20 && (
-                          <span className="text-[8px] text-blue-500 font-bold mt-1">
+                          <span className="text-[8px] text-blue-600 font-bold mt-1">
                             %{h.rain}
                           </span>
                         )}
