@@ -16,7 +16,11 @@ import { FamilyWidget } from "@/components/dashboard/widgets/FamilyWidget";
 import { DynamicBackground } from "@/components/dashboard/DynamicBackground";
 
 // Actionlar
-import { getDashboardItems, getPublicHolidays } from "@/app/actions/events";
+import {
+  getDashboardItems,
+  getPublicHolidays,
+  getAllEvents,
+} from "@/app/actions/events";
 import {
   getLeaderboard,
   getRewards,
@@ -71,7 +75,8 @@ export default async function Dashboard() {
   // 4. Verileri Çek (Paralel)
   const [
     holidays,
-    dashboardData,
+    dashboardData, // Günlük veri (Hatırlatmalar burada)
+    calendarEvents,
     leaderboardData,
     rewardsData,
     historyData,
@@ -81,6 +86,7 @@ export default async function Dashboard() {
   ] = await Promise.all([
     getPublicHolidays(countryCode),
     getDashboardItems(),
+    getAllEvents(),
     getLeaderboard(),
     getRewards(),
     getPointHistory(),
@@ -106,6 +112,7 @@ export default async function Dashboard() {
             userRole={userRole}
             userName={userName}
             locationName={countryCode}
+            todayEvents={dashboardData.items || []} // <-- YENİ: Veriyi gönderiyoruz
           />
         </div>
       </div>
@@ -118,7 +125,7 @@ export default async function Dashboard() {
           <div className="h-fit">
             <CalendarWidget
               initialHolidays={holidays}
-              // userGender prop'u buradan kaldırıldı
+              events={calendarEvents.items || []}
             />
           </div>
 
@@ -129,7 +136,7 @@ export default async function Dashboard() {
               userRole={userRole}
               userId={user.id}
               familyMembers={membersData.members || []}
-              userGender={userGender} // TasksWidget hala bunu kullanıyor
+              userGender={userGender}
             />
           </div>
 
@@ -155,6 +162,9 @@ export default async function Dashboard() {
           <div className="h-[320px]">
             <PetWidget familyMembers={membersData.members || []} />
           </div>
+
+          {/* 6. Aile Kasası */}
+          <div className="h-[300px]">{/* VaultWidget */}</div>
         </div>
       </div>
     </div>

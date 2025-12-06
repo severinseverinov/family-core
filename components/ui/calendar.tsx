@@ -24,9 +24,7 @@ export interface CalendarProps {
   onSelect?: (date: Date) => void;
   className?: string;
   locale?: Locale;
-  /** Gün hücresinin içine ekstra içerik basmak için (Hava durumu vb.) */
   renderDayContent?: (date: Date) => React.ReactNode;
-  /** Özel günleri (Tatil vb.) işaretlemek için */
   modifiers?: {
     holiday?: Date[];
   };
@@ -44,23 +42,16 @@ export function Calendar({
   modifiers,
   modifiersStyles,
 }: CalendarProps) {
-  // Takvimin o an gösterdiği ay (Gezinme için)
   const [currentMonth, setCurrentMonth] = React.useState(
     selected || new Date()
   );
 
-  // Ayın başı ve sonu
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(monthStart);
-
-  // Takvim ızgarasının başı (Önceki aydan sarkan günler dahil)
-  const startDate = startOfWeek(monthStart, { weekStartsOn: 1 }); // Pzt başlasın
+  const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
   const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
 
-  // Tüm günlerin listesi
   const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
-
-  // Haftanın gün isimleri (Pzt, Sal...)
   const weekDays = eachDayOfInterval({
     start: startOfWeek(new Date(), { weekStartsOn: 1 }),
     end: endOfWeek(new Date(), { weekStartsOn: 1 }),
@@ -69,78 +60,82 @@ export function Calendar({
   const handlePrevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
   const handleNextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
 
-  const handleDayClick = (day: Date) => {
-    if (onSelect) onSelect(day);
-  };
-
   return (
     <div className={cn("p-3 w-fit mx-auto", className)}>
-      {/* ÜST KISIM: AY İSMİ VE BUTONLAR */}
+      {/* ÜST KISIM */}
       <div className="flex items-center justify-between mb-4">
         <Button
           variant="outline"
-          className="h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+          className="h-8 w-8 bg-transparent p-0 opacity-50 hover:opacity-100"
           onClick={handlePrevMonth}
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <div className="text-sm font-medium capitalize">
+        <div className="text-base font-semibold capitalize">
           {format(currentMonth, "MMMM yyyy", { locale })}
         </div>
         <Button
           variant="outline"
-          className="h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+          className="h-8 w-8 bg-transparent p-0 opacity-50 hover:opacity-100"
           onClick={handleNextMonth}
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
 
-      {/* HAFTA GÜNLERİ BAŞLIKLARI */}
-      <div className="grid grid-cols-7 mb-2">
+      {/* HAFTA GÜNLERİ */}
+      <div className="grid grid-cols-7 mb-2 gap-1">
         {weekDays.map(day => (
           <div
             key={day.toString()}
-            className="text-muted-foreground rounded-md w-10 text-[0.8rem] font-normal text-center"
+            className="text-muted-foreground rounded-md w-16 text-xs font-medium text-center py-1 uppercase tracking-wide"
           >
-            {format(day, "EEEEE", { locale })} {/* T, F, S gibi tek harf */}
+            {format(day, "EEE", { locale })}
           </div>
         ))}
       </div>
 
       {/* GÜNLER IZGARASI */}
-      <div className="grid grid-cols-7 gap-y-2">
+      <div className="grid grid-cols-7 gap-1">
         {calendarDays.map((day, idx) => {
           const isSelected = selected ? isSameDay(day, selected) : false;
           const isToday = isSameDay(day, new Date());
           const isOutside = !isSameMonth(day, currentMonth);
 
-          // Tatil kontrolü
           const isHoliday = modifiers?.holiday?.some(h => isSameDay(day, h));
           const holidayStyle = isHoliday ? modifiersStyles?.holiday : {};
 
           return (
-            <div key={idx} className="relative flex justify-center">
+            <div
+              key={idx}
+              className="relative flex justify-center aspect-square"
+            >
               <button
-                onClick={() => handleDayClick(day)}
+                onClick={() => onSelect?.(day)}
                 style={holidayStyle}
                 className={cn(
-                  "h-10 w-10 p-0 text-sm flex flex-col items-center justify-center rounded-md transition-all relative z-10",
-                  "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none",
-                  isSelected &&
-                    "bg-blue-600 text-white hover:bg-blue-700 hover:text-white focus:bg-blue-700",
+                  "w-16 h-16 relative overflow-hidden rounded-xl transition-all border",
+                  "focus:outline-none focus:ring-2 focus:ring-primary/20",
+                  // Dışarıdaki günler
+                  isOutside
+                    ? "bg-transparent border-transparent text-muted-foreground/30 hover:bg-gray-50/50 dark:hover:bg-gray-800/50"
+                    : "bg-white dark:bg-gray-800/50 border-gray-100 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-700",
+                  // Bugün
                   isToday &&
                     !isSelected &&
-                    "bg-accent text-accent-foreground font-bold border border-blue-200 dark:border-blue-800",
-                  isOutside &&
-                    "text-muted-foreground opacity-50 bg-transparent hover:bg-transparent"
+                    "ring-1 ring-blue-400 bg-blue-50/30 dark:bg-blue-900/10",
+                  // Seçili Gün
+                  isSelected &&
+                    "bg-blue-600 dark:bg-blue-600 border-blue-600 text-white shadow-md ring-2 ring-blue-200 dark:ring-blue-900"
                 )}
               >
-                <span className="z-10 leading-none">{format(day, "d")}</span>
-
-                {/* Dışarıdan gelen içerik (Hava durumu ikonu vb.) */}
-                {renderDayContent && (
-                  <div className="mt-0.5">{renderDayContent(day)}</div>
+                {/* Eğer renderDayContent varsa onu kullan, yoksa sadece sayıyı göster */}
+                {renderDayContent ? (
+                  renderDayContent(day)
+                ) : (
+                  <span className="text-sm font-medium">
+                    {format(day, "d")}
+                  </span>
                 )}
               </button>
             </div>

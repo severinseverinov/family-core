@@ -1,21 +1,64 @@
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
-import { LogIn, Layers, LayoutDashboard, Settings } from "lucide-react";
+import { LogIn, LayoutDashboard, Settings } from "lucide-react";
 import { UserMenu } from "./UserMenu";
 import { Button } from "@/components/ui/button";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { MobileNav } from "./MobileNav";
-import { VaultNavButton } from "./VaultNavButton"; // <-- YENİ: Kasa Butonu Eklendi
+import { VaultNavButton } from "./VaultNavButton"; // Aile Kasası butonu
 
-function getFlagEmoji(countryCode: string) {
-  const codePoints = countryCode
-    .toUpperCase()
-    .split("")
-    .map(char => 127397 + char.charCodeAt(0));
-  return String.fromCodePoint(...codePoints);
+// --- 1. LOGO BİLEŞENİ (Buraya eklendi) ---
+export function FamilyCoreLogo({
+  className = "w-10 h-10",
+}: {
+  className?: string;
+}) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 100 100"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      {/* Üst Yay */}
+      <path
+        d="M 25 35 Q 50 10 75 35"
+        stroke="currentColor"
+        strokeWidth="10"
+        className="text-blue-600 dark:text-blue-400"
+      />
+      {/* Alt Yay */}
+      <path
+        d="M 25 65 Q 50 90 75 65"
+        stroke="currentColor"
+        strokeWidth="10"
+        className="text-blue-600 dark:text-blue-400"
+      />
+
+      {/* Merkez Çekirdek */}
+      <circle cx="50" cy="50" r="14" className="fill-orange-500" />
+
+      {/* Yan Bağlantılar */}
+      <path
+        d="M 20 40 L 20 60"
+        stroke="currentColor"
+        strokeWidth="8"
+        className="text-blue-600 dark:text-blue-400 opacity-80"
+      />
+      <path
+        d="M 80 40 L 80 60"
+        stroke="currentColor"
+        strokeWidth="8"
+        className="text-blue-600 dark:text-blue-400 opacity-80"
+      />
+    </svg>
+  );
 }
 
+// --- 2. NAVBAR BİLEŞENİ ---
 export async function Navbar() {
   const supabase = await createClient();
   const {
@@ -24,8 +67,7 @@ export async function Navbar() {
   const t = await getTranslations("Navbar");
 
   const headersList = await headers();
-  const countryCode = headersList.get("x-vercel-ip-country") || "TR";
-  // const flag = getFlagEmoji(countryCode); // İsteğe bağlı bayrak
+  // const countryCode = headersList.get("x-vercel-ip-country") || "TR"; // İhtiyaç olursa
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
@@ -35,12 +77,21 @@ export async function Navbar() {
           <div className="flex items-center gap-8">
             <Link
               href="/"
-              className="flex items-center gap-2 text-xl font-bold text-foreground transition-colors hover:text-primary"
+              className="flex items-center gap-2 text-xl font-bold text-foreground transition-colors hover:text-primary group"
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <Layers className="h-5 w-5" />
+              {/* FamilyCoreLogo Kullanımı */}
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/20 group-hover:scale-105 transition-transform duration-300">
+                <FamilyCoreLogo className="h-8 w-8" />
               </div>
-              <span>FamilyCore</span>
+
+              <div className="flex flex-col leading-none">
+                <span className="text-lg font-bold tracking-tight">
+                  FamilyCore
+                </span>
+                <span className="text-[10px] text-gray-500 font-medium tracking-widest uppercase">
+                  OS
+                </span>
+              </div>
             </Link>
 
             {/* MASAÜSTÜ MENÜ (Giriş Yapılmışsa) */}
@@ -82,7 +133,7 @@ export async function Navbar() {
           <div className="flex items-center gap-4">
             {user ? (
               <>
-                {/* YENİ: Aile Kasası Butonu (Masaüstü için) */}
+                {/* Aile Kasası Butonu */}
                 <VaultNavButton />
                 <UserMenu user={user} />
               </>

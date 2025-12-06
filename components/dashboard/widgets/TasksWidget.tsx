@@ -1,8 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { format, addDays, isSameDay } from "date-fns";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import {
+  format,
+  addDays,
+  isSameDay,
+  startOfDay,
+  endOfDay,
+  isWithinInterval,
+} from "date-fns";
 import { tr, enUS, de } from "date-fns/locale";
 import {
   CheckCircle2,
@@ -13,9 +20,13 @@ import {
   Calendar as CalendarIcon,
   ListTodo,
   Plus,
-  Repeat,
   Clock,
-  Heart,
+  Stethoscope,
+  Syringe,
+  FileText,
+  Baby,
+  Check,
+  PlayCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
@@ -24,11 +35,12 @@ import { cn } from "@/lib/utils";
 import {
   getDashboardItems,
   createEvent,
+  completeEvent,
   type DashboardItem,
 } from "@/app/actions/events";
 import { completePetTask, approveTask } from "@/app/actions/pets";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -67,37 +79,75 @@ export function TasksWidget({
   const t = useTranslations("Calendar");
   const tCommon = useTranslations("Common");
   const locale = useLocale();
-  const router = useRouter();
 
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const initialDate = searchParams.get("date")
+    ? new Date(searchParams.get("date")!)
+    : new Date();
+  const [selectedDate, setSelectedDate] = useState<Date>(initialDate);
+
   const [items, setItems] = useState<DashboardItem[]>(initialItems || []);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"tasks" | "events">("tasks");
+  const [activeTab, setActiveTab] = useState<"tasks" | "events">("events");
 
-  // Modal State
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [modalTab, setModalTab] = useState("standard");
   const [frequency, setFrequency] = useState("none");
   const [privacyLevel, setPrivacyLevel] = useState("family");
   const [selectedWeekDays, setSelectedWeekDays] = useState<number[]>([]);
-
-  // Özel Durum State
+  const [appointmentType, setAppointmentType] = useState("doctor");
   const [lastPeriodDate, setLastPeriodDate] = useState("");
   const [cycleLength, setCycleLength] = useState(28);
 
   const dateLocale = locale === "tr" ? tr : locale === "de" ? de : enUS;
 
+  // --- FİLTRELEME ---
+  const taskList = (items || []).filter(i => i.type === "task");
+
+  const eventList = (items || []).filter(i => {
+    if (i.type !== "event") return false;
+
+    // Tek seferlik etkinliklerde, seçili günün herhangi bir saatinde mi diye bak
+    if (i.frequency === "none" && i.time) {
+      const eventDate = new Date(i.time);
+      // Etkinlik tarihi, seçili günün 00:00 ile 23:59 arasında mı?
+      return isWithinInterval(eventDate, {
+        start: startOfDay(selectedDate),
+        end: endOfDay(selectedDate),
+      });
+    }
+    return true;
+  });
+
+  // URL'deki Tarih Değişirse
   useEffect(() => {
-    fetchItems(new Date());
-  }, []);
+    const dateParam = searchParams.get("date");
+    if (dateParam) {
+      const newDate = new Date(dateParam);
+      // Eğer gün değiştiyse state'i güncelle ve veriyi çek
+      if (!isSameDay(newDate, selectedDate)) {
+        setSelectedDate(newDate);
+        fetchItems(newDate);
+      }
+    }
+  }, [searchParams]);
 
   const fetchItems = async (date: Date) => {
     setLoading(true);
     try {
       const dateStr = format(date, "yyyy-MM-dd");
       const res = await getDashboardItems(dateStr);
-      if (res.items) setItems(res.items);
-    } catch {
+      if (res && Array.isArray(res.items)) {
+        setItems(res.items);
+      } else {
+        setItems([]);
+      }
+    } catch (e) {
+      console.error(e);
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -107,6 +157,11 @@ export function TasksWidget({
     const newDate = addDays(selectedDate, days);
     setSelectedDate(newDate);
     fetchItems(newDate);
+
+    const dateStr = format(newDate, "yyyy-MM-dd");
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("date", dateStr);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
   const handleCompleteTask = async (routineId: string, points: number) => {
@@ -134,14 +189,22 @@ export function TasksWidget({
     }
   };
 
+  const handleEventComplete = async (eventId: string) => {
+    const res = await completeEvent(eventId);
+    if (res?.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("İşaretlendi ✅");
+      fetchItems(selectedDate);
+      router.refresh();
+    }
+  };
+
   const toggleWeekDay = (dayId: number) => {
     setSelectedWeekDays(prev =>
       prev.includes(dayId) ? prev.filter(d => d !== dayId) : [...prev, dayId]
     );
   };
-
-  const taskList = items.filter(i => i.type === "task");
-  const eventList = items.filter(i => i.type === "event");
 
   return (
     <Card className="h-full flex flex-col shadow-sm bg-white dark:bg-gray-900 border-orange-100 dark:border-orange-900/30 relative overflow-hidden">
@@ -216,6 +279,7 @@ export function TasksWidget({
           </p>
         ) : (
           <>
+            {/* GÖREVLER TABI */}
             {activeTab === "tasks" &&
               (taskList.length === 0 ? (
                 <div className="text-center py-10 text-gray-400 text-xs opacity-60">
@@ -223,13 +287,11 @@ export function TasksWidget({
                 </div>
               ) : (
                 taskList.map(task => {
-                  const isChild = !["owner", "admin"].includes(userRole);
-                  const isAssignedToMe =
-                    !task.assigned_to ||
-                    task.assigned_to.length === 0 ||
-                    task.assigned_to.includes(userId);
-                  const isPending = task.status === "pending";
                   const isDone = task.status === "completed";
+                  const isAssignedToMe =
+                    !task.assigned_to || task.assigned_to.includes(userId);
+                  const isPending = task.status === "pending";
+                  const isChild = !["owner", "admin"].includes(userRole);
                   return (
                     <div
                       key={task.id}
@@ -271,8 +333,11 @@ export function TasksWidget({
                             <span className="bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-1.5 py-0.5 rounded">
                               {task.pet_name}
                             </span>
-                            {isDone && <span>✅ {task.completed_by}</span>}
-                            {!isDone && <span>+{task.points} P</span>}
+                            {isDone ? (
+                              <span>✅ {task.completed_by}</span>
+                            ) : (
+                              <span>+{task.points} P</span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -299,7 +364,7 @@ export function TasksWidget({
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 px-3 text-xs font-medium text-orange-600 bg-orange-50 hover:bg-orange-100 hover:text-orange-700 dark:bg-orange-900/20 dark:hover:bg-orange-900/40 dark:text-orange-400"
+                            className="h-8 px-3 text-xs font-medium text-orange-600 bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/20 dark:text-orange-400"
                             onClick={() =>
                               handleCompleteTask(task.routine_id!, task.points!)
                             }
@@ -316,42 +381,141 @@ export function TasksWidget({
                   );
                 })
               ))}
+
+            {/* HATIRLATMALAR TABI */}
             {activeTab === "events" &&
               (eventList.length === 0 ? (
                 <div className="text-center py-10 text-gray-400 text-xs opacity-60">
                   Hatırlatma yok.
                 </div>
               ) : (
-                eventList.map(event => (
-                  <div
-                    key={event.id}
-                    className="flex items-center gap-3 p-3 bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-800 border-l-4 border-l-blue-500 shadow-sm"
-                  >
-                    <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-blue-600">
-                      <Clock className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-center">
-                        <p className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">
-                          {event.title}
-                        </p>
+                eventList.map(event => {
+                  let EventIcon = Clock;
+                  let iconColor = "text-blue-600";
+                  let bgColor = "bg-blue-50 dark:bg-blue-900/20";
+                  if (event.category === "doctor") {
+                    EventIcon = Stethoscope;
+                    iconColor = "text-red-600";
+                    bgColor = "bg-red-50 dark:bg-red-900/20";
+                  } else if (event.category === "vaccine") {
+                    EventIcon = Syringe;
+                    iconColor = "text-green-600";
+                    bgColor = "bg-green-50 dark:bg-green-900/20";
+                  } else if (event.category === "baby") {
+                    EventIcon = Baby;
+                    iconColor = "text-purple-600";
+                    bgColor = "bg-purple-50 dark:bg-purple-900/20";
+                  }
+
+                  const eventTime = event.time
+                    ? new Date(event.time)
+                    : new Date();
+                  const isPast = eventTime < new Date();
+                  const isCompleted = event.is_completed;
+                  const canComplete = event.frequency === "none";
+
+                  return (
+                    <div
+                      key={event.id}
+                      className={cn(
+                        "flex items-start gap-3 p-3 rounded-lg border shadow-sm transition-all",
+                        isCompleted
+                          ? "bg-green-50/40 border-green-100 dark:bg-green-900/10 dark:border-green-900"
+                          : "bg-white dark:bg-gray-900 dark:border-gray-800 border-l-4",
+                        !isCompleted &&
+                          (event.category === "doctor"
+                            ? "border-l-red-500"
+                            : event.category === "vaccine"
+                            ? "border-l-green-500"
+                            : "border-l-blue-500")
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "p-2 rounded mt-0.5",
+                          isCompleted ? "bg-green-100 text-green-600" : bgColor,
+                          !isCompleted && iconColor
+                        )}
+                      >
+                        {isCompleted ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <EventIcon className="h-4 w-4" />
+                        )}
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {event.time
-                          ? format(new Date(event.time), "HH:mm")
-                          : "Tüm Gün"}
-                      </p>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start">
+                          <p
+                            className={cn(
+                              "text-sm font-bold truncate pr-2",
+                              isCompleted
+                                ? "text-gray-500 line-through"
+                                : "text-gray-800 dark:text-gray-200"
+                            )}
+                          >
+                            {event.title}
+                          </p>
+                          {event.privacy_level === "private" && (
+                            <Lock className="h-3.5 w-3.5 text-gray-300 shrink-0" />
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded w-fit">
+                            {event.time
+                              ? format(new Date(event.time), "HH:mm")
+                              : "Tüm Gün"}
+                          </p>
+                          {isCompleted && (
+                            <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">
+                              {event.completed_by
+                                ? `✅ ${event.completed_by}`
+                                : "Tamamlandı"}
+                            </span>
+                          )}
+                          {event.description && !isCompleted && (
+                            <div className="group relative">
+                              <FileText className="h-3.5 w-3.5 text-gray-400" />
+                              <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block bg-black text-white text-[10px] p-2 rounded w-48 z-50">
+                                {event.description}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {!isCompleted && canComplete && isPast && (
+                        <div className="shrink-0">
+                          {event.category === "health" ? (
+                            <Button
+                              size="sm"
+                              className="h-7 text-[10px] bg-pink-500 hover:bg-pink-600 text-white gap-1 px-2"
+                              onClick={() => handleEventComplete(event.id)}
+                            >
+                              <PlayCircle className="h-3 w-3" /> Başladı?
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[10px] border-green-200 hover:bg-green-50 text-green-700 gap-1 px-2"
+                              onClick={() => handleEventComplete(event.id)}
+                            >
+                              <Check className="h-3 w-3" /> Yapıldı
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    {event.privacy_level === "private" && (
-                      <Lock className="h-3.5 w-3.5 text-gray-300" />
-                    )}
-                  </div>
-                ))
+                  );
+                })
               ))}
           </>
         )}
       </CardContent>
 
+      {/* ... (Dialog kodu aynı) ... */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -368,29 +532,43 @@ export function TasksWidget({
           >
             <TabsList className="grid w-full grid-cols-3 mb-4">
               <TabsTrigger value="standard">Standart</TabsTrigger>
-              {userGender === "female" && (
-                <TabsTrigger value="health">Regl/Döngü</TabsTrigger>
+              <TabsTrigger value="appointment">Randevu/Aşı</TabsTrigger>
+              {userGender === "female" ? (
+                <TabsTrigger value="health">Döngü</TabsTrigger>
+              ) : (
+                <TabsTrigger value="care">Bakım</TabsTrigger>
               )}
-              <TabsTrigger value="care">Bakım</TabsTrigger>
             </TabsList>
 
             <form
               action={async fd => {
-                let dateVal = format(selectedDate, "yyyy-MM-dd");
+                const formDate = fd.get("date") as string;
+                let dateVal = formDate || format(selectedDate, "yyyy-MM-dd");
                 let title = fd.get("title") as string;
-                if (modalTab === "health") {
+                let category = "general";
+
+                if (modalTab === "appointment") {
+                  category = appointmentType;
+                  if (!title) {
+                    if (appointmentType === "doctor")
+                      title = "Doktor Randevusu";
+                    else if (appointmentType === "vaccine") title = "Aşı Günü";
+                    else if (appointmentType === "baby")
+                      title = "Bebek Kontrolü";
+                  }
+                } else if (modalTab === "health") {
                   const lastDate = new Date(lastPeriodDate);
                   if (!isNaN(lastDate.getTime())) {
                     const nextDate = addDays(lastDate, cycleLength);
                     dateVal = format(nextDate, "yyyy-MM-dd");
                     title = "Tahmini Regl Başlangıcı ❤️";
                     fd.set("frequency", "monthly");
+                    category = "health";
                   }
-                } else if (modalTab === "care") {
-                  title = title || "Kişisel Bakım ✂️";
                 }
 
                 fd.set("title", title);
+                fd.append("category", category);
                 fd.append(
                   "start_time",
                   `${dateVal}T${fd.get("start_time_only") || "09:00"}`
@@ -399,20 +577,34 @@ export function TasksWidget({
                   "end_time",
                   `${dateVal}T${fd.get("end_time_only") || "10:00"}`
                 );
-                if (frequency === "weekly" && selectedWeekDays.length > 0) {
+                if (frequency === "weekly" && selectedWeekDays.length > 0)
                   fd.append("recurrence_days", selectedWeekDays.join(","));
-                }
 
                 const res = await createEvent(fd);
                 if (res?.error) toast.error(res.error);
                 else {
                   setIsDialogOpen(false);
                   toast.success(t("successAdd"));
-                  fetchItems(selectedDate);
+                  const newDate = new Date(dateVal);
+                  if (!isSameDay(newDate, selectedDate)) {
+                    handleDateChange(0);
+                  } else {
+                    fetchItems(selectedDate);
+                  }
                 }
               }}
               className="space-y-3"
             >
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Tarih</label>
+                <Input
+                  type="date"
+                  name="date"
+                  defaultValue={format(selectedDate, "yyyy-MM-dd")}
+                  className="bg-white dark:bg-gray-800"
+                />
+              </div>
+
               <TabsContent value="standard" className="space-y-3">
                 <div className="space-y-1">
                   <label className="text-xs font-medium">
@@ -424,25 +616,76 @@ export function TasksWidget({
                     required
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">{t("start")}</label>
-                    <input
-                      type="time"
-                      name="start_time_only"
-                      className="w-full border p-2 rounded text-sm dark:bg-gray-800 dark:border-gray-700"
-                      defaultValue="09:00"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">{t("end")}</label>
-                    <input
-                      type="time"
-                      name="end_time_only"
-                      className="w-full border p-2 rounded text-sm dark:bg-gray-800 dark:border-gray-700"
-                      defaultValue="10:00"
-                    />
-                  </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Not / Açıklama</label>
+                  <textarea
+                    name="description"
+                    className="w-full border p-2 rounded text-sm dark:bg-gray-800 dark:border-gray-700 resize-none h-16"
+                    placeholder="Detay ekle..."
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="appointment" className="space-y-3">
+                <div className="grid grid-cols-3 gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setAppointmentType("doctor")}
+                    className={cn(
+                      "flex flex-col items-center justify-center p-2 rounded border transition-all text-xs gap-1",
+                      appointmentType === "doctor"
+                        ? "bg-red-50 border-red-500 text-red-700"
+                        : "bg-white border-gray-200 text-gray-500"
+                    )}
+                  >
+                    <Stethoscope className="h-5 w-5" /> Doktor
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAppointmentType("vaccine")}
+                    className={cn(
+                      "flex flex-col items-center justify-center p-2 rounded border transition-all text-xs gap-1",
+                      appointmentType === "vaccine"
+                        ? "bg-green-50 border-green-500 text-green-700"
+                        : "bg-white border-gray-200 text-gray-500"
+                    )}
+                  >
+                    <Syringe className="h-5 w-5" /> Aşı
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAppointmentType("baby")}
+                    className={cn(
+                      "flex flex-col items-center justify-center p-2 rounded border transition-all text-xs gap-1",
+                      appointmentType === "baby"
+                        ? "bg-purple-50 border-purple-500 text-purple-700"
+                        : "bg-white border-gray-200 text-gray-500"
+                    )}
+                  >
+                    <Baby className="h-5 w-5" /> Bebek
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">
+                    Başlık (Opsiyonel)
+                  </label>
+                  <input
+                    name="title"
+                    placeholder={
+                      appointmentType === "vaccine"
+                        ? "Örn: 2. Ay Aşısı"
+                        : "Örn: Göz Doktoru"
+                    }
+                    className="w-full border p-2 rounded text-sm dark:bg-gray-800 dark:border-gray-700"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Önemli Notlar</label>
+                  <textarea
+                    name="description"
+                    className="w-full border p-2 rounded text-sm dark:bg-gray-800 dark:border-gray-700 resize-none h-20"
+                    placeholder="Doktor adı, alınacak ilaçlar, aşı detayları..."
+                  />
                 </div>
               </TabsContent>
 
@@ -489,15 +732,34 @@ export function TasksWidget({
                   />
                 </div>
                 <div className="space-y-1">
+                  <label className="text-xs font-medium">Not</label>
+                  <input
+                    name="description"
+                    className="w-full border p-2 rounded text-sm dark:bg-gray-800 dark:border-gray-700"
+                  />
+                </div>
+              </TabsContent>
+
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <div className="space-y-1">
                   <label className="text-xs font-medium">{t("start")}</label>
                   <input
                     type="time"
                     name="start_time_only"
                     className="w-full border p-2 rounded text-sm dark:bg-gray-800 dark:border-gray-700"
+                    defaultValue="09:00"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">{t("end")}</label>
+                  <input
+                    type="time"
+                    name="end_time_only"
+                    className="w-full border p-2 rounded text-sm dark:bg-gray-800 dark:border-gray-700"
                     defaultValue="10:00"
                   />
                 </div>
-              </TabsContent>
+              </div>
 
               <div className="grid grid-cols-2 gap-3 pt-2 border-t dark:border-gray-800">
                 <div className="space-y-1">
@@ -530,6 +792,7 @@ export function TasksWidget({
                   </select>
                 </div>
               </div>
+
               {privacyLevel === "member" && (
                 <div className="space-y-1">
                   <label className="text-xs font-medium">Kişi Seç</label>
@@ -545,6 +808,7 @@ export function TasksWidget({
                   </select>
                 </div>
               )}
+
               {frequency === "weekly" && (
                 <div className="space-y-2 bg-gray-50 p-2 rounded border border-dashed dark:bg-gray-800 dark:border-gray-700">
                   <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
