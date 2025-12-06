@@ -30,6 +30,8 @@ export function MobileNav({ user }: { user: any }) {
   const supabase = createClient();
 
   const handleSignOut = async () => {
+    // Çıkış yaparken de menüyü kapat
+    setOpen(false);
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
@@ -39,9 +41,7 @@ export function MobileNav({ user }: { user: any }) {
     <>
       <Dialog open={vaultOpen} onOpenChange={setVaultOpen}>
         <DialogContent className="max-w-md h-[90vh] p-0 border-none bg-transparent shadow-none">
-          {/* DÜZELTME: sr-only sınıfı ile başlık gizlendi */}
           <DialogTitle className="sr-only">Aile Kasası</DialogTitle>
-
           <div className="h-full w-full bg-white dark:bg-gray-950 rounded-lg overflow-hidden flex flex-col">
             <VaultWidget className="border-0 shadow-none h-full rounded-none" />
           </div>
@@ -59,12 +59,20 @@ export function MobileNav({ user }: { user: any }) {
           {!user ? (
             <>
               <DropdownMenuItem asChild>
-                <Link href="#features" className="w-full cursor-pointer py-2">
+                <Link
+                  href="#features"
+                  className="w-full cursor-pointer py-2"
+                  onClick={() => setOpen(false)} // EKLENDİ
+                >
                   Özellikler
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="#pricing" className="w-full cursor-pointer py-2">
+                <Link
+                  href="#pricing"
+                  className="w-full cursor-pointer py-2"
+                  onClick={() => setOpen(false)} // EKLENDİ
+                >
                   Fiyatlar
                 </Link>
               </DropdownMenuItem>
@@ -73,6 +81,7 @@ export function MobileNav({ user }: { user: any }) {
                 <Link
                   href="/login"
                   className="w-full cursor-pointer py-2 font-semibold text-primary"
+                  onClick={() => setOpen(false)} // EKLENDİ
                 >
                   <LogIn className="mr-2 h-4 w-4" /> Giriş Yap
                 </Link>
@@ -87,6 +96,7 @@ export function MobileNav({ user }: { user: any }) {
                 <Link
                   href="/dashboard"
                   className="w-full cursor-pointer py-2 flex items-center gap-2"
+                  onClick={() => setOpen(false)} // EKLENDİ
                 >
                   <LayoutDashboard className="h-4 w-4" /> Panel
                 </Link>
@@ -95,6 +105,7 @@ export function MobileNav({ user }: { user: any }) {
                 <Link
                   href="/dashboard/settings"
                   className="w-full cursor-pointer py-2 flex items-center gap-2"
+                  onClick={() => setOpen(false)} // EKLENDİ
                 >
                   <Settings className="h-4 w-4" /> Ayarlar
                 </Link>
@@ -104,7 +115,7 @@ export function MobileNav({ user }: { user: any }) {
                 onSelect={e => {
                   e.preventDefault();
                   setVaultOpen(true);
-                  setOpen(false);
+                  setOpen(false); // Zaten vardı ama kontrol ettik
                 }}
                 className="w-full cursor-pointer py-2 flex items-center gap-2 text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30"
               >
